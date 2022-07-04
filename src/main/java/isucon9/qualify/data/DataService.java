@@ -188,4 +188,16 @@ public class DataService {
         Optional<Shipping> row = shippingRepository.findById(transactionEvidenceId);
         return row;
     }
+
+    public List<Integer> getCategoryIdsByRootCategoryId(int parentId) {
+        return categoryRepository.findIdByParentId(parentId);
+    }
+
+    public List<Item> getItemsByCategoryIds(List<Integer> ids, LocalDateTime createdAt, long itemId) {
+        return itemRepository.findItems(ItemStatusOnSale, ItemStatusTrading, ids, createdAt, itemId, ItemsPerPage + 1);
+    }
+
+    public List<Item> getItemsByCategoryIds(List<Integer> ids) {
+        return itemRepository.findItems(ItemStatusOnSale, ItemStatusTrading, ids, ItemsPerPage + 1);
+    }
 }

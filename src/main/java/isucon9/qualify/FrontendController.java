@@ -6,24 +6,10 @@ import org.springframework.web.bind.annotation.GetMapping;
 @Controller
 public class FrontendController {
 
-    private static final String defaultView = "index";
-
-    @GetMapping("/")
+    @GetMapping({ "/", "/login", "/register", "/timeline", "/categories/{category_id}/items", "/sell",
+            "/items/{item_id}", "/items/{item_id}/edit", "/items/{item_id}/buy", "/buy/complete",
+            "/transactions/{transaction_id}", "/users/{user_id}", "/users/setting" })
     public String index() {
-        return defaultView;
+        return "index";
     }
-
-    // mux.HandleFunc(pat.Get("/login"), getIndex)
-    // mux.HandleFunc(pat.Get("/register"), getIndex)
-    // mux.HandleFunc(pat.Get("/timeline"), getIndex)
-    // mux.HandleFunc(pat.Get("/categories/:category_id/items"), getIndex)
-    // mux.HandleFunc(pat.Get("/sell"), getIndex)
-    // mux.HandleFunc(pat.Get("/items/:item_id"), getIndex)
-    // mux.HandleFunc(pat.Get("/items/:item_id/edit"), getIndex)
-    // mux.HandleFunc(pat.Get("/items/:item_id/buy"), getIndex)
-    // mux.HandleFunc(pat.Get("/buy/complete"), getIndex)
-    // mux.HandleFunc(pat.Get("/transactions/:transaction_id"), getIndex)
-    // mux.HandleFunc(pat.Get("/users/:user_id"), getIndex)
-    // mux.HandleFunc(pat.Get("/users/setting"), getIndex)
-
 }

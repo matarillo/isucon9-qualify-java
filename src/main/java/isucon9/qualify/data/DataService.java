@@ -75,6 +75,13 @@ public class DataService {
         return userRepository.findById(userId);
     }
 
+    public Optional<User> getUserByIdForUpdate(long userId) {
+        if (userId <= 0L) {
+            return Optional.empty();
+        }
+        return userRepository.findByIdForUpdate(userId);
+    }
+
     public List<Category> getCategories() {
         Iterable<Category> iterable = categoryRepository.findAll();
         List<Category> categories = new ArrayList<Category>();

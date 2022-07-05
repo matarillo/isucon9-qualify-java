@@ -1,9 +1,16 @@
 package isucon9.qualify;
 
+import static isucon9.qualify.Const.BumpChargeSeconds;
+import static isucon9.qualify.Const.ItemMaxPrice;
+import static isucon9.qualify.Const.ItemMinPrice;
+import static isucon9.qualify.Const.ItemPriceErrMsg;
 import static isucon9.qualify.Const.ItemsPerPage;
 import static isucon9.qualify.Const.TransactionsPerPage;
 
+import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.security.SecureRandom;
 import java.time.Instant;
 import java.time.LocalDateTime;
@@ -13,13 +20,18 @@ import java.util.List;
 import java.util.Optional;
 import java.util.function.Supplier;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.core.io.ClassPathResource;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.security.crypto.bcrypt.BCrypt;
 import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -28,6 +40,8 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
+import org.springframework.web.multipart.MultipartFile;
+import org.springframework.web.server.ResponseStatusException;
 
 import isucon9.qualify.api.ApiService;
 import isucon9.qualify.data.DataService;
@@ -52,6 +66,7 @@ import isucon9.qualify.web.SessionService;
 @RestController
 public class ApiController {
 
+    private final Logger logger = LoggerFactory.getLogger(ApiController.class);
     private final SessionService sessionService;
     private final DataService dataService;
     private final TransactionTemplate tx;
@@ -341,6 +356,67 @@ public class ApiController {
 
     // mux.HandleFunc(pat.Post("/buy"), postBuy)
     // mux.HandleFunc(pat.Post("/sell"), postSell)
+
+    @PostMapping(value = "/sell", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public String postSell(@RequestParam("csrf_token") String csrfToken, @RequestParam("name") String name,
+            @RequestParam("description") String description,
+            @RequestParam("price") int price,
+            @RequestParam("category_id") int categoryId,
+            @RequestParam("image") MultipartFile image) {
+        if (categoryId < 0) {
+            throw new ApiException("category id error", HttpStatus.BAD_REQUEST);
+        }
+        if (name.isEmpty() || description.isEmpty() || price == 0 || categoryId == 0) {
+            throw new ApiException("all parameters are required", HttpStatus.BAD_REQUEST);
+        }
+        if (price < ItemMinPrice || price > ItemMaxPrice) {
+            throw new ApiException(ItemPriceErrMsg, HttpStatus.BAD_REQUEST);
+        }
+
+        Category category = dataService.GetCategoryById(categoryId).orElseThrow(() -> new ApiException("Incorrect category ID", HttpStatus.BAD_REQUEST));
+        User user = getUser().orElseThrow(notFound("user not found"));
+
+        String contentType = image.getContentType();
+        String ext;
+        switch (contentType) {
+            case "image/jpeg":
+                ext = ".jpg";
+                break;
+            case "image/png":
+                ext = ".png";
+                break;
+            case "image/gif":
+                ext = ".gif";
+                break;
+            default:
+                throw new ApiException("unsupported image format error", HttpStatus.BAD_REQUEST);
+        }
+        String imgName = secureRandomStr(16) + ext;
+        try {
+            ClassPathResource uploadDirResource = new ClassPathResource("static/upload");
+            Path uploadDirPath = uploadDirResource.getFile().toPath();
+            Path target = uploadDirPath.resolve(imgName);
+            Path source = image.getResource().getFile().toPath();
+            Files.move(source, target);
+        } catch (IOException e) {
+            throw new ApiException("Saving image failed", HttpStatus.INTERNAL_SERVER_ERROR, e);
+        }
+
+        Object o = tx.execute(status -> {
+            User seller = dataService.getUserByIdForUpdate(user.getId()).orElseThrow(notFound("user not found"));
+            LocalDateTime now = LocalDateTime.now();
+            // last_bump + 3s > now
+            LocalDateTime waitExpirationTime = seller.getLastBump().plus(BumpChargeSeconds);
+            if (waitExpirationTime.isAfter(now)) {
+                throw new ApiException("Bump not allowed", HttpStatus.FORBIDDEN);
+            }
+
+            return null;
+        });
+
+        return imgName;
+    }
+
     // mux.HandleFunc(pat.Post("/ship"), postShip)
     // mux.HandleFunc(pat.Post("/ship_done"), postShipDone)
     // mux.HandleFunc(pat.Post("/complete"), postComplete)
@@ -407,7 +483,8 @@ public class ApiController {
         ErrorResponse body = new ErrorResponse();
         String name = e.getName();
         String message = name.equals("user_id") ? "incorrect user id"
-                : name.equals("root_category_id") ? "incorrect category id" : name + " param errpr";
+                : name.equals("item_id") ? "incorrect item id"
+                        : name.equals("root_category_id") ? "incorrect category id" : name + " param errpr";
         body.setError(message);
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(body);
     }
@@ -426,10 +503,40 @@ public class ApiController {
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(body);
     }
 
+    @ExceptionHandler(MissingServletRequestParameterException.class)
+    public ResponseEntity<ErrorResponse> handleMissingServletRequestParameterException(MissingServletRequestParameterException e) {
+        ErrorResponse body = new ErrorResponse();
+        body.setError("all parameters are required");
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(body);
+    }
+
     @ExceptionHandler(ApiException.class)
     public ResponseEntity<ErrorResponse> handleApiException(ApiException e) {
+        if (e.getStatus().is5xxServerError()) {
+            Throwable cause = e.getCause();
+            if (cause != null) {
+                logger.info("A Server Error Occurred Caused by:", cause);
+            } else {
+                logger.info("A Server Error Occurred", e);
+            }
+        }
         ErrorResponse body = new ErrorResponse();
         body.setError(e.getMessage());
+        return ResponseEntity.status(e.getStatus()).body(body);
+    }
+
+    @ExceptionHandler(ResponseStatusException.class)
+    public ResponseEntity<ErrorResponse> handleResponseStatusException(ResponseStatusException e) {
+        if (e.getStatus().is5xxServerError()) {
+            Throwable cause = e.getCause();
+            if (cause != null) {
+                logger.info("A Server Error Occurred Caused by:", cause);
+            } else {
+                logger.info("A Server Error Occurred", e);
+            }
+        }
+        ErrorResponse body = new ErrorResponse();
+        body.setError(e.getReason());
         return ResponseEntity.status(e.getStatus()).body(body);
     }
 }

@@ -36,8 +36,7 @@ public class ApiService {
             ResponseEntity<ApiShipmentStatusResponse> resEntity = restTemplate.exchange(endpoint, HttpMethod.GET, reqEntity, ApiShipmentStatusResponse.class);
             return resEntity.getBody();    
         } catch (RestClientException e) {
-            // TODO: log
-            throw new ApiException("failed to request to shipment service", HttpStatus.INTERNAL_SERVER_ERROR);
+            throw new ApiException("failed to request to shipment service", HttpStatus.INTERNAL_SERVER_ERROR, e);
         }
     }
 }

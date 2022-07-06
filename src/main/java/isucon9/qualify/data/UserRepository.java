@@ -1,5 +1,6 @@
 package isucon9.qualify.data;
 
+import java.time.LocalDateTime;
 import java.util.Optional;
 
 import org.springframework.data.jdbc.repository.query.Query;
@@ -13,4 +14,7 @@ public interface UserRepository extends CrudRepository<User, Long> {
 
     @Query("SELECT * FROM `users` WHERE `id` = :id FOR UPDATE")
     public Optional<User> findByIdForUpdate(long id);
+
+    @Query("UPDATE `users` SET `num_sell_items` = :numSellItems, `last_bump` = :lastBump WHERE `id` = :id")
+    public boolean updateById(long id, int numSellItems, LocalDateTime lastBump);
 }

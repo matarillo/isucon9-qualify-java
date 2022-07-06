@@ -82,6 +82,10 @@ public class DataService {
         return userRepository.findByIdForUpdate(userId);
     }
 
+    public boolean updateUser(long id, int numSellItems, LocalDateTime lastBump) {
+        return userRepository.updateById(id, numSellItems, lastBump);
+    }
+
     public List<Category> getCategories() {
         Iterable<Category> iterable = categoryRepository.findAll();
         List<Category> categories = new ArrayList<Category>();
@@ -178,6 +182,10 @@ public class DataService {
         }
         Optional<Item> row = itemRepository.findById(itemId);
         return row;
+    }
+
+    public Item saveItem(Item newItem) {
+        return itemRepository.save(newItem);
     }
 
     public Optional<TransactionEvidence> getTransactionEvidenceByItemId(long itemId) {

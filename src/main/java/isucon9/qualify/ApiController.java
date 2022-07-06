@@ -4,6 +4,7 @@ import static isucon9.qualify.Const.BumpChargeSeconds;
 import static isucon9.qualify.Const.ItemMaxPrice;
 import static isucon9.qualify.Const.ItemMinPrice;
 import static isucon9.qualify.Const.ItemPriceErrMsg;
+import static isucon9.qualify.Const.ItemStatusOnSale;
 import static isucon9.qualify.Const.ItemsPerPage;
 import static isucon9.qualify.Const.TransactionsPerPage;
 
@@ -54,6 +55,7 @@ import isucon9.qualify.dto.ItemDetail;
 import isucon9.qualify.dto.ItemSimple;
 import isucon9.qualify.dto.LoginRequest;
 import isucon9.qualify.dto.NewItemsResponse;
+import isucon9.qualify.dto.SellResponse;
 import isucon9.qualify.dto.SettingResponse;
 import isucon9.qualify.dto.Shipping;
 import isucon9.qualify.dto.TransactionEvidence;
@@ -355,10 +357,9 @@ public class ApiController {
     }
 
     // mux.HandleFunc(pat.Post("/buy"), postBuy)
-    // mux.HandleFunc(pat.Post("/sell"), postSell)
 
     @PostMapping(value = "/sell", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    public String postSell(@RequestParam("csrf_token") String csrfToken, @RequestParam("name") String name,
+    public SellResponse postSell(@RequestParam("csrf_token") String csrfToken, @RequestParam("name") String name,
             @RequestParam("description") String description,
             @RequestParam("price") int price,
             @RequestParam("category_id") int categoryId,
@@ -402,19 +403,28 @@ public class ApiController {
             throw new ApiException("Saving image failed", HttpStatus.INTERNAL_SERVER_ERROR, e);
         }
 
-        Object o = tx.execute(status -> {
+        Item newItem = tx.execute(status -> {
             User seller = dataService.getUserByIdForUpdate(user.getId()).orElseThrow(notFound("user not found"));
-            LocalDateTime now = LocalDateTime.now();
-            // last_bump + 3s > now
-            LocalDateTime waitExpirationTime = seller.getLastBump().plus(BumpChargeSeconds);
-            if (waitExpirationTime.isAfter(now)) {
-                throw new ApiException("Bump not allowed", HttpStatus.FORBIDDEN);
-            }
-
-            return null;
+            Item inserting = new Item();
+            // id: AUTO INCREMENT
+            inserting.setSellerId(seller.getId());
+            // buyer_id: DEFAULT 0
+            inserting.setStatus(ItemStatusOnSale);
+            inserting.setName(name);
+            inserting.setPrice(price);
+            inserting.setDescription(description);
+            inserting.setImageName(imgName);
+            inserting.setCategoryId(category.getId());
+            // created_at: DEFAULT CURRENT_TIMESTAMP
+            // updated_at: DEFAULT CURRENT_TIMESTAMP
+            Item inserted = dataService.saveItem(inserting);
+            dataService.updateUser(seller.getId(), seller.getNumSellItems() + 1, LocalDateTime.now());
+            return inserted;
         });
 
-        return imgName;
+        SellResponse response = new SellResponse();
+        response.setId(newItem.getId());
+        return response;
     }
 
     // mux.HandleFunc(pat.Post("/ship"), postShip)
@@ -423,6 +433,12 @@ public class ApiController {
     // mux.HandleFunc(pat.Get("/transactions/:transaction_evidence_id.png"),
     // getQRCode)
     // mux.HandleFunc(pat.Post("/bump"), postBump)
+    //    LocalDateTime now = LocalDateTime.now();
+    //    // last_bump + 3s > now
+    //    LocalDateTime waitExpirationTime = seller.getLastBump().plus(BumpChargeSeconds);
+    //    if (waitExpirationTime.isAfter(now)) {
+    //        throw new ApiException("Bump not allowed", HttpStatus.FORBIDDEN);
+    //    }
 
     @GetMapping("/settings")
     public SettingResponse getSettings() {

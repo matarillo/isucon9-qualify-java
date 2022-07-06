@@ -24,9 +24,9 @@ public class Item {
      */
 
     @Id
-    private long id;
+    private Long id; // AUTO_INCREMENT
     private long sellerId;
-    private long buyerId;
+    private long buyerId; // DEFAULT 0
     private String status;
     private String name;
     private int price;
@@ -34,15 +34,15 @@ public class Item {
     private String imageName;
     private int categoryId;
     @JsonIgnore
-    private LocalDateTime createdAt;
+    private LocalDateTime createdAt; // DEFAULT CURRENT_TIMESTAMP
     @JsonIgnore
-    private LocalDateTime updatedAt;
+    private LocalDateTime updatedAt; // DEFAULT CURRENT_TIMESTAMP
 
-    public long getId() {
+    public Long getId() {
         return id;
     }
 
-    public void setId(long id) {
+    public void setId(Long id) {
         this.id = id;
     }
 

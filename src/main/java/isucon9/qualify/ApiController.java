@@ -48,10 +48,12 @@ import isucon9.qualify.api.ApiService;
 import isucon9.qualify.data.DataService;
 import isucon9.qualify.dto.ApiShipmentStatusRequest;
 import isucon9.qualify.dto.ApiShipmentStatusResponse;
+import isucon9.qualify.dto.BumpRequest;
 import isucon9.qualify.dto.Category;
 import isucon9.qualify.dto.ErrorResponse;
 import isucon9.qualify.dto.Item;
 import isucon9.qualify.dto.ItemDetail;
+import isucon9.qualify.dto.ItemEditResponse;
 import isucon9.qualify.dto.ItemSimple;
 import isucon9.qualify.dto.LoginRequest;
 import isucon9.qualify.dto.NewItemsResponse;
@@ -432,13 +434,41 @@ public class ApiController {
     // mux.HandleFunc(pat.Post("/complete"), postComplete)
     // mux.HandleFunc(pat.Get("/transactions/:transaction_evidence_id.png"),
     // getQRCode)
+
     // mux.HandleFunc(pat.Post("/bump"), postBump)
-    //    LocalDateTime now = LocalDateTime.now();
-    //    // last_bump + 3s > now
-    //    LocalDateTime waitExpirationTime = seller.getLastBump().plus(BumpChargeSeconds);
-    //    if (waitExpirationTime.isAfter(now)) {
-    //        throw new ApiException("Bump not allowed", HttpStatus.FORBIDDEN);
-    //    }
+    public ItemEditResponse postBump(@RequestBody BumpRequest request) {
+        String csrfToken = request.getCsrfToken();
+        long itemId = request.getItemId();
+        if (!sessionService.getCsrfToken().equals(csrfToken)) {
+            throw new ApiException("csrf token error", HttpStatus.UNPROCESSABLE_ENTITY);
+        }
+        User user = getUser().orElseThrow(notFound("user not found"));
+        Item targetItem = tx.execute(status -> {
+            Item bumping = dataService.getItemByIdForUpdate(itemId).orElseThrow(notFound("item not found"));
+            if (bumping.getSellerId() != user.getId()) {
+                throw new ApiException("自分の商品以外は編集できません", HttpStatus.FORBIDDEN);
+            }
+            User seller = dataService.getUserByIdForUpdate(user.getId()).orElseThrow(notFound("user not found"));
+
+            LocalDateTime now = LocalDateTime.now();
+            // last_bump + 3s > now
+            LocalDateTime waitExpirationTime = seller.getLastBump().plus(BumpChargeSeconds);
+            if (waitExpirationTime.isAfter(now)) {
+                throw new ApiException("Bump not allowed", HttpStatus.FORBIDDEN);
+            }
+
+            dataService.updateItem(itemId, now);
+            dataService.updateUser(seller.getId(), now);
+            Item bumped = dataService.getItemById(itemId).orElseThrow(internalServerError("db error"));
+            return bumped;
+        });
+        ItemEditResponse response = new ItemEditResponse();
+        response.setItemId(targetItem.getId());
+        response.setItemPrice(targetItem.getPrice());
+        response.setItemCreatedAt(targetItem.getCreatedAt().toEpochSecond(ZoneOffset.UTC));
+        response.setItemUpdatedAt(targetItem.getUpdatedAt().toEpochSecond(ZoneOffset.UTC));
+        return response;
+    }
 
     @GetMapping("/settings")
     public SettingResponse getSettings() {
@@ -491,6 +521,10 @@ public class ApiController {
 
     private Supplier<ApiException> notFound(String message) {
         return () -> new ApiException(message, HttpStatus.NOT_FOUND);
+    }
+
+    private Supplier<ApiException> internalServerError(String message) {
+        return () -> new ApiException(message, HttpStatus.INTERNAL_SERVER_ERROR);
     }
 
     @ExceptionHandler(MethodArgumentTypeMismatchException.class)

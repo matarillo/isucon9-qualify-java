@@ -83,7 +83,11 @@ public class DataService {
     }
 
     public boolean updateUser(long id, int numSellItems, LocalDateTime lastBump) {
-        return userRepository.updateById(id, numSellItems, lastBump);
+        return userRepository.update(id, numSellItems, lastBump);
+    }
+
+    public boolean updateUser(long id, LocalDateTime lastBump) {
+        return userRepository.update(id, lastBump);
     }
 
     public List<Category> getCategories() {
@@ -182,6 +186,18 @@ public class DataService {
         }
         Optional<Item> row = itemRepository.findById(itemId);
         return row;
+    }
+
+    public Optional<Item> getItemByIdForUpdate(long itemId) {
+        if (itemId <= 0L) {
+            return Optional.empty();
+        }
+        Optional<Item> row = itemRepository.findByIdForUpdate(itemId);
+        return row;
+    }
+
+    public boolean updateItem(long itemId, LocalDateTime dateTime) {
+        return itemRepository.update(itemId, dateTime, dateTime);
     }
 
     public Item saveItem(Item newItem) {

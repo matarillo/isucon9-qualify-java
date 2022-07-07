@@ -16,5 +16,8 @@ public interface UserRepository extends CrudRepository<User, Long> {
     public Optional<User> findByIdForUpdate(long id);
 
     @Query("UPDATE `users` SET `num_sell_items` = :numSellItems, `last_bump` = :lastBump WHERE `id` = :id")
-    public boolean updateById(long id, int numSellItems, LocalDateTime lastBump);
+    public boolean update(long id, int numSellItems, LocalDateTime lastBump);
+
+    @Query("UPDATE `users` SET `last_bump` = :lastBump WHERE `id` = :id")
+    public boolean update(long id, LocalDateTime lastBump);
 }

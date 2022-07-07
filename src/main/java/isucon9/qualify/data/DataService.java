@@ -204,6 +204,14 @@ public class DataService {
         return itemRepository.save(newItem);
     }
 
+    public Optional<TransactionEvidence> getTransactionEvidenceById(long transactionEvidenceId) {
+        if (transactionEvidenceId <= 0L) {
+            return Optional.empty();
+        }
+        Optional<TransactionEvidence> row = transactionEvidenceRepository.findById(transactionEvidenceId);
+        return row;
+    }
+
     public Optional<TransactionEvidence> getTransactionEvidenceByItemId(long itemId) {
         if (itemId <= 0L) {
             return Optional.empty();

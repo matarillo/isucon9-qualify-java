@@ -7,6 +7,8 @@ import static isucon9.qualify.Const.ItemPriceErrMsg;
 import static isucon9.qualify.Const.ItemStatusOnSale;
 import static isucon9.qualify.Const.ItemsPerPage;
 import static isucon9.qualify.Const.TransactionsPerPage;
+import static isucon9.qualify.Const.ShippingsStatusWaitPickup;
+import static isucon9.qualify.Const.ShippingsStatusShipping;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -23,7 +25,9 @@ import java.util.function.Supplier;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.core.io.ByteArrayResource;
 import org.springframework.core.io.ClassPathResource;
+import org.springframework.core.io.Resource;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -376,7 +380,8 @@ public class ApiController {
             throw new ApiException(ItemPriceErrMsg, HttpStatus.BAD_REQUEST);
         }
 
-        Category category = dataService.GetCategoryById(categoryId).orElseThrow(() -> new ApiException("Incorrect category ID", HttpStatus.BAD_REQUEST));
+        Category category = dataService.GetCategoryById(categoryId)
+                .orElseThrow(() -> new ApiException("Incorrect category ID", HttpStatus.BAD_REQUEST));
         User user = getUser().orElseThrow(notFound("user not found"));
 
         String contentType = image.getContentType();
@@ -433,9 +438,31 @@ public class ApiController {
     // mux.HandleFunc(pat.Post("/ship_done"), postShipDone)
     // mux.HandleFunc(pat.Post("/complete"), postComplete)
     // mux.HandleFunc(pat.Get("/transactions/:transaction_evidence_id.png"),
-    // getQRCode)
 
-    // mux.HandleFunc(pat.Post("/bump"), postBump)
+    @GetMapping("/transactions/{transaction_evidence_id}.png")
+    public ResponseEntity<byte[]> getQRCode(@PathVariable("transaction_evidence_id") long transactionEvidenceId) {
+        throwIfNotPositiveValue(transactionEvidenceId, "incorrect transaction_evidence id");
+
+        User seller = getUser().orElseThrow(notFound("user not found"));
+        TransactionEvidence transactionEvidence = dataService.getTransactionEvidenceById(transactionEvidenceId)
+                .orElseThrow(notFound("transaction_evidences not found"));
+        if (transactionEvidence.getSellerId() != seller.getId()) {
+            throw new ApiException("権限がありません", HttpStatus.FORBIDDEN);
+        }
+        Shipping shipping = dataService.getShippingById(transactionEvidence.getId())
+                .orElseThrow(notFound("shippings not found"));
+        String shippingStatus = Optional.ofNullable(shipping.getStatus()).orElse("");
+        if (!shippingStatus.equals(ShippingsStatusWaitPickup) && !shippingStatus.equals(ShippingsStatusShipping)) {
+            throw new ApiException("qrcode not available", HttpStatus.FORBIDDEN);
+        }
+        byte[] imgBinary = shipping.getImgBinary();
+        if (imgBinary == null || imgBinary.length == 0) {
+            throw new ApiException("empty qrcode image", HttpStatus.INTERNAL_SERVER_ERROR);
+        }
+
+        return ResponseEntity.status(HttpStatus.OK).contentType(MediaType.IMAGE_PNG).body(imgBinary);
+    }
+
     public ItemEditResponse postBump(@RequestBody BumpRequest request) {
         String csrfToken = request.getCsrfToken();
         long itemId = request.getItemId();
@@ -554,7 +581,8 @@ public class ApiController {
     }
 
     @ExceptionHandler(MissingServletRequestParameterException.class)
-    public ResponseEntity<ErrorResponse> handleMissingServletRequestParameterException(MissingServletRequestParameterException e) {
+    public ResponseEntity<ErrorResponse> handleMissingServletRequestParameterException(
+            MissingServletRequestParameterException e) {
         ErrorResponse body = new ErrorResponse();
         body.setError("all parameters are required");
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(body);

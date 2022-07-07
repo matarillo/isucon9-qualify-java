@@ -16,6 +16,18 @@ public class Const {
     public static final String ItemStatusStop = "stop";
     public static final String ItemStatusCancel = "cancel";
 
+    public static final String PaymentServiceIsucariApiKey = "a15400e46c83635eb181-946abb51ff26a868317c";
+    public static final String PaymentServiceIsucariShopId = "11";
+
+    public static final String TransactionEvidenceStatusWaitShipping = "wait_shipping";
+    public static final String TransactionEvidenceStatusWaitDone = "wait_done";
+    public static final String TransactionEvidenceStatusDone = "done";
+
+    public static final String ShippingsStatusInitial = "initial";
+    public static final String ShippingsStatusWaitPickup = "wait_pickup";
+    public static final String ShippingsStatusShipping = "shipping";
+    public static final String ShippingsStatusDone = "done";
+
     public static final Duration BumpChargeSeconds = Duration.ofSeconds(3);
 
     public static final int ItemsPerPage = 48;

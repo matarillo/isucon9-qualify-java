@@ -6,9 +6,10 @@ import static isucon9.qualify.Const.ItemMinPrice;
 import static isucon9.qualify.Const.ItemPriceErrMsg;
 import static isucon9.qualify.Const.ItemStatusOnSale;
 import static isucon9.qualify.Const.ItemsPerPage;
-import static isucon9.qualify.Const.TransactionsPerPage;
-import static isucon9.qualify.Const.ShippingsStatusWaitPickup;
 import static isucon9.qualify.Const.ShippingsStatusShipping;
+import static isucon9.qualify.Const.ShippingsStatusWaitPickup;
+import static isucon9.qualify.Const.TransactionEvidenceStatusWaitShipping;
+import static isucon9.qualify.Const.TransactionsPerPage;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -25,9 +26,7 @@ import java.util.function.Supplier;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.core.io.ByteArrayResource;
 import org.springframework.core.io.ClassPathResource;
-import org.springframework.core.io.Resource;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -50,9 +49,15 @@ import org.springframework.web.server.ResponseStatusException;
 
 import isucon9.qualify.api.ApiService;
 import isucon9.qualify.data.DataService;
+import isucon9.qualify.dto.ApiPaymentServiceTokenRequest;
+import isucon9.qualify.dto.ApiPaymentServiceTokenResponse;
+import isucon9.qualify.dto.ApiShipmentCreateRequest;
+import isucon9.qualify.dto.ApiShipmentCreateResponse;
 import isucon9.qualify.dto.ApiShipmentStatusRequest;
 import isucon9.qualify.dto.ApiShipmentStatusResponse;
 import isucon9.qualify.dto.BumpRequest;
+import isucon9.qualify.dto.BuyRequest;
+import isucon9.qualify.dto.BuyResponse;
 import isucon9.qualify.dto.Category;
 import isucon9.qualify.dto.ErrorResponse;
 import isucon9.qualify.dto.Item;
@@ -351,18 +356,100 @@ public class ApiController {
         return itemDetail;
     }
 
-    private void throwIfNotPositiveValue(long id, String message) {
-        if (id < 0L) {
-            throw new ApiException(message, HttpStatus.BAD_REQUEST);
-        }
-    }
-
     @PostMapping("/items/edit")
     public Object postItemEdit() {
         return null;
     }
 
-    // mux.HandleFunc(pat.Post("/buy"), postBuy)
+    @PostMapping("/buy")
+    public BuyResponse postBuy(@RequestBody BuyRequest request) {
+        String csrfToken = request.getCsrfToken();
+        long itemId = request.getItemId();
+        throwIfInvalidCsrfToken(csrfToken);
+        throwIfNotPositiveValue(itemId, "item_id param error");
+        User buyer = getUser().orElseThrow(notFound("user not found"));
+
+        Shipping newShipping = tx.execute(status -> {
+            Item targetItem = dataService.getItemByIdForUpdate(itemId).orElseThrow(notFound("item not found"));
+            if (!targetItem.getStatus().equals(ItemStatusOnSale)) {
+                throw new ApiException("item is not for sale", HttpStatus.FORBIDDEN);
+            }
+            if (targetItem.getSellerId() == buyer.getId()) {
+                throw new ApiException("自分の商品は買えません", HttpStatus.FORBIDDEN);
+            }
+            User seller = dataService.getUserByIdForUpdate(targetItem.getSellerId())
+                    .orElseThrow(notFound("seller not found"));
+            Category category = dataService.GetCategoryById(targetItem.getCategoryId())
+                    .orElseThrow(internalServerError("category id error"));
+
+            TransactionEvidence evidenceInserting = new TransactionEvidence();
+            // id: AUTO INCREMENT
+            evidenceInserting.setSellerId(seller.getId());
+            evidenceInserting.setBuyerId(buyer.getId());
+            evidenceInserting.setStatus(TransactionEvidenceStatusWaitShipping);
+            evidenceInserting.setItemId(targetItem.getId());
+            evidenceInserting.setItemName(targetItem.getName());
+            evidenceInserting.setItemPrice(targetItem.getPrice());
+            evidenceInserting.setItemDescription(targetItem.getDescription());
+            evidenceInserting.setItemCategoryId(category.getId());
+            evidenceInserting.setItemRootCategoryId(category.getParentId());
+            // created_at: DEFAULT CURRENT_TIMESTAMP
+            // updated_at: DEFAULT CURRENT_TIMESTAMP
+            TransactionEvidence evidenceInserted = dataService.saveTransactionEvidence(evidenceInserting);
+            long transactionEvidenceId = evidenceInserted.getId();
+
+            LocalDateTime now = LocalDateTime.now();
+            dataService.updateItem(targetItem.getId(), buyer.getId(), now);
+
+            ApiShipmentCreateRequest createRequest = new ApiShipmentCreateRequest();
+            createRequest.setToAddress(buyer.getAddress());
+            createRequest.setToName(buyer.getAccountName());
+            createRequest.setFromAddress(seller.getAddress());
+            createRequest.setFromName(seller.getAccountName());
+            ApiShipmentCreateResponse createResponse = apiService.createShipment(dataService.getShipmentServiceURL(),
+                    createRequest);
+
+            ApiPaymentServiceTokenRequest tokenRequest = new ApiPaymentServiceTokenRequest();
+            tokenRequest.setShopId(isucon9.qualify.Const.PaymentServiceIsucariShopId);
+            tokenRequest.setToken(request.getToken());
+            tokenRequest.setApiKey(isucon9.qualify.Const.PaymentServiceIsucariApiKey);
+            tokenRequest.setPrice(targetItem.getPrice());
+            ApiPaymentServiceTokenResponse tokenResponse = apiService
+                    .getPaymentToken(dataService.getPaymentServiceURL(), tokenRequest);
+
+            String tokenStatus = Optional.ofNullable(tokenResponse.getStatus()).orElse("");
+            switch (tokenStatus) {
+                case "ok":
+                    break;
+                case "invalid":
+                    throw new ApiException("カード情報に誤りがあります", HttpStatus.BAD_REQUEST);
+                case "fail":
+                    throw new ApiException("カードの残高が足りません", HttpStatus.BAD_REQUEST);
+                default:
+                    throw new ApiException("想定外のエラー", HttpStatus.BAD_REQUEST);
+            }
+
+            Shipping shippingInserting = new Shipping();
+            shippingInserting.setTransactionEvidenceId(transactionEvidenceId);
+            shippingInserting.setStatus(isucon9.qualify.Const.ShippingsStatusInitial);
+            shippingInserting.setItemName(targetItem.getName());
+            shippingInserting.setItemId(targetItem.getId());
+            shippingInserting.setReserveId(createResponse.getReserveId());
+            shippingInserting.setReserveTime(createResponse.getReserveTime());
+            shippingInserting.setToAddress(buyer.getAddress());
+            shippingInserting.setToName(buyer.getAccountName());
+            shippingInserting.setFromAddress(seller.getAddress());
+            shippingInserting.setFromName(seller.getAccountName());
+            shippingInserting.setImgBinary(new byte[0]);
+            Shipping shippingInserted = dataService.saveShipping(shippingInserting);
+
+            return shippingInserted;
+        });
+
+        BuyResponse response = new BuyResponse();
+        response.setTransactionEvidenceId(newShipping.getTransactionEvidenceId());
+        return response;
+    }
 
     @PostMapping(value = "/sell", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public SellResponse postSell(@RequestParam("csrf_token") String csrfToken, @RequestParam("name") String name,
@@ -370,12 +457,10 @@ public class ApiController {
             @RequestParam("price") int price,
             @RequestParam("category_id") int categoryId,
             @RequestParam("image") MultipartFile image) {
-        if (categoryId < 0) {
-            throw new ApiException("category id error", HttpStatus.BAD_REQUEST);
-        }
-        if (name.isEmpty() || description.isEmpty() || price == 0 || categoryId == 0) {
+        if (name.isEmpty() || description.isEmpty()) {
             throw new ApiException("all parameters are required", HttpStatus.BAD_REQUEST);
         }
+        throwIfNotPositiveValue(categoryId, "category id error");
         if (price < ItemMinPrice || price > ItemMaxPrice) {
             throw new ApiException(ItemPriceErrMsg, HttpStatus.BAD_REQUEST);
         }
@@ -466,10 +551,10 @@ public class ApiController {
     public ItemEditResponse postBump(@RequestBody BumpRequest request) {
         String csrfToken = request.getCsrfToken();
         long itemId = request.getItemId();
-        if (!sessionService.getCsrfToken().equals(csrfToken)) {
-            throw new ApiException("csrf token error", HttpStatus.UNPROCESSABLE_ENTITY);
-        }
+        throwIfInvalidCsrfToken(csrfToken);
+        throwIfNotPositiveValue(itemId, "item_id param error");
         User user = getUser().orElseThrow(notFound("user not found"));
+
         Item targetItem = tx.execute(status -> {
             Item bumping = dataService.getItemByIdForUpdate(itemId).orElseThrow(notFound("item not found"));
             if (bumping.getSellerId() != user.getId()) {
@@ -489,6 +574,7 @@ public class ApiController {
             Item bumped = dataService.getItemById(itemId).orElseThrow(internalServerError("db error"));
             return bumped;
         });
+
         ItemEditResponse response = new ItemEditResponse();
         response.setItemId(targetItem.getId());
         response.setItemPrice(targetItem.getPrice());
@@ -509,19 +595,16 @@ public class ApiController {
 
     @PostMapping("/login")
     public User postLogin(@RequestBody @Validated LoginRequest login) {
-        Optional<User> row = dataService.getUserByAccountName(login.getAccountName());
-        if (!row.isPresent()) {
-            throw new ApiException("アカウント名かパスワードが間違えています", HttpStatus.UNAUTHORIZED);
-        }
-        User u = row.get();
+        Supplier<ApiException> unauthorizedSupplier = unauthorized("アカウント名かパスワードが間違えています");
+        User user = dataService.getUserByAccountName(login.getAccountName()).orElseThrow(unauthorizedSupplier);
         String plaintext = login.getPassword();
-        String hashed = new String(u.getHashedPassword(), StandardCharsets.UTF_8);
+        String hashed = new String(user.getHashedPassword(), StandardCharsets.UTF_8);
         if (!BCrypt.checkpw(plaintext, hashed)) {
-            throw new ApiException("アカウント名かパスワードが間違えています", HttpStatus.UNAUTHORIZED);
+            throw unauthorizedSupplier.get();
         }
-        sessionService.setUserId(u.getId());
+        sessionService.setUserId(user.getId());
         sessionService.setCsrfToken(secureRandomStr(20));
-        return u;
+        return user;
     }
 
     // mux.HandleFunc(pat.Post("/register"), postRegister)
@@ -546,6 +629,22 @@ public class ApiController {
         return dataService.getUserById(sessionService.getUserId());
     }
 
+    private void throwIfNotPositiveValue(long id, String message) {
+        if (id < 0L) {
+            throw new ApiException(message, HttpStatus.BAD_REQUEST);
+        }
+    }
+
+    private void throwIfInvalidCsrfToken(String csrfToken) {
+        if (!sessionService.getCsrfToken().equals(csrfToken)) {
+            throw new ApiException("csrf token error", HttpStatus.UNPROCESSABLE_ENTITY);
+        }
+    }
+
+    private Supplier<ApiException> unauthorized(String message) {
+        return () -> new ApiException(message, HttpStatus.UNAUTHORIZED);
+    }
+
     private Supplier<ApiException> notFound(String message) {
         return () -> new ApiException(message, HttpStatus.NOT_FOUND);
     }
@@ -558,10 +657,22 @@ public class ApiController {
     public ResponseEntity<ErrorResponse> handleMethodArgumentTypeMismatchException(
             MethodArgumentTypeMismatchException e) {
         ErrorResponse body = new ErrorResponse();
+        String message;
         String name = e.getName();
-        String message = name.equals("user_id") ? "incorrect user id"
-                : name.equals("item_id") ? "incorrect item id"
-                        : name.equals("root_category_id") ? "incorrect category id" : name + " param errpr";
+        switch (name) {
+            case "user_id":
+                message = "incorrect user id";
+                break;
+            case "item_id":
+                message = "incorrect item id";
+                break;
+            case "root_category_id":
+                message = "incorrect category id";
+                break;
+            default:
+                message = name + " param errpr";
+                break;
+        }
         body.setError(message);
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(body);
     }

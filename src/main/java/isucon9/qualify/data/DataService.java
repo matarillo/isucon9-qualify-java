@@ -200,6 +200,10 @@ public class DataService {
         return itemRepository.update(itemId, dateTime, dateTime);
     }
 
+    public boolean updateItem(long itemId, long buyerId, LocalDateTime dateTime) {
+        return itemRepository.update(itemId, buyerId, ItemStatusTrading, dateTime);
+    }
+
     public Item saveItem(Item newItem) {
         return itemRepository.save(newItem);
     }
@@ -220,12 +224,20 @@ public class DataService {
         return row;
     }
 
+    public TransactionEvidence saveTransactionEvidence(TransactionEvidence newEvidence) {
+        return transactionEvidenceRepository.save(newEvidence);
+    }
+
     public Optional<Shipping> getShippingById(long transactionEvidenceId) {
         if (transactionEvidenceId <= 0L) {
             return Optional.empty();
         }
         Optional<Shipping> row = shippingRepository.findById(transactionEvidenceId);
         return row;
+    }
+
+    public Shipping saveShipping(Shipping newShipping) {
+        return shippingRepository.save(newShipping);
     }
 
     public List<Integer> getCategoryIdsByRootCategoryId(int parentId) {

@@ -40,9 +40,9 @@ public class Shipping {
     @JsonIgnore
     private byte[] imgBinary;
     @JsonIgnore
-    private LocalDateTime createdAt;
+    private LocalDateTime createdAt; // DEFAULT CURRENT_TIMESTAMP
     @JsonIgnore
-    private LocalDateTime updatedAt;
+    private LocalDateTime updatedAt; // DEFAULT CURRENT_TIMESTAMP
 
     public long getTransactionEvidenceId() {
         return transactionEvidenceId;

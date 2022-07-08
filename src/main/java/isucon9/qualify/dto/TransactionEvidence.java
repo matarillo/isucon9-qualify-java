@@ -26,7 +26,7 @@ public class TransactionEvidence {
      */
 
     @Id
-    private long id;
+    private Long id; // AUTO_INCREMENT
     private long sellerId;
     private long buyerId;
     private String status;
@@ -34,18 +34,18 @@ public class TransactionEvidence {
     private String itemName;
     private int itemPrice;
     private String itemDescription;
-    private int itemCategoryID;
-    private int itemRootCategoryID;
+    private int itemCategoryId;
+    private int itemRootCategoryId;
     @JsonIgnore
-    private LocalDateTime createdAt;
+    private LocalDateTime createdAt; // DEFAULT CURRENT_TIMESTAMP
     @JsonIgnore
-    private LocalDateTime updatedAt;
+    private LocalDateTime updatedAt; // DEFAULT CURRENT_TIMESTAMP
 
-    public long getId() {
+    public Long getId() {
         return id;
     }
 
-    public void setId(long id) {
+    public void setId(Long id) {
         this.id = id;
     }
 
@@ -105,20 +105,20 @@ public class TransactionEvidence {
         this.itemDescription = itemDescription;
     }
 
-    public int getItemCategoryID() {
-        return itemCategoryID;
+    public int getItemCategoryId() {
+        return itemCategoryId;
     }
 
-    public void setItemCategoryID(int itemCategoryID) {
-        this.itemCategoryID = itemCategoryID;
+    public void setItemCategoryId(int itemCategoryId) {
+        this.itemCategoryId = itemCategoryId;
     }
 
-    public int getItemRootCategoryID() {
-        return itemRootCategoryID;
+    public int getItemRootCategoryId() {
+        return itemRootCategoryId;
     }
 
-    public void setItemRootCategoryID(int itemRootCategoryID) {
-        this.itemRootCategoryID = itemRootCategoryID;
+    public void setItemRootCategoryId(int itemRootCategoryId) {
+        this.itemRootCategoryId = itemRootCategoryId;
     }
 
     public LocalDateTime getCreatedAt() {

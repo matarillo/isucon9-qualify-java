@@ -6,6 +6,9 @@ import static isucon9.qualify.Const.ItemMinPrice;
 import static isucon9.qualify.Const.ItemPriceErrMsg;
 import static isucon9.qualify.Const.ItemStatusOnSale;
 import static isucon9.qualify.Const.ItemsPerPage;
+import static isucon9.qualify.Const.PaymentServiceIsucariApiKey;
+import static isucon9.qualify.Const.PaymentServiceIsucariShopId;
+import static isucon9.qualify.Const.ShippingsStatusInitial;
 import static isucon9.qualify.Const.ShippingsStatusShipping;
 import static isucon9.qualify.Const.ShippingsStatusWaitPickup;
 import static isucon9.qualify.Const.TransactionEvidenceStatusWaitShipping;
@@ -410,9 +413,9 @@ public class ApiController {
                     createRequest);
 
             ApiPaymentServiceTokenRequest tokenRequest = new ApiPaymentServiceTokenRequest();
-            tokenRequest.setShopId(isucon9.qualify.Const.PaymentServiceIsucariShopId);
+            tokenRequest.setShopId(PaymentServiceIsucariShopId);
             tokenRequest.setToken(request.getToken());
-            tokenRequest.setApiKey(isucon9.qualify.Const.PaymentServiceIsucariApiKey);
+            tokenRequest.setApiKey(PaymentServiceIsucariApiKey);
             tokenRequest.setPrice(targetItem.getPrice());
             ApiPaymentServiceTokenResponse tokenResponse = apiService
                     .getPaymentToken(dataService.getPaymentServiceURL(), tokenRequest);
@@ -431,7 +434,7 @@ public class ApiController {
 
             Shipping shippingInserting = new Shipping();
             shippingInserting.setTransactionEvidenceId(transactionEvidenceId);
-            shippingInserting.setStatus(isucon9.qualify.Const.ShippingsStatusInitial);
+            shippingInserting.setStatus(ShippingsStatusInitial);
             shippingInserting.setItemName(targetItem.getName());
             shippingInserting.setItemId(targetItem.getId());
             shippingInserting.setReserveId(createResponse.getReserveId());

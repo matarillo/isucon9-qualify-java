@@ -63,12 +63,20 @@ import isucon9.qualify.dto.BuyRequest;
 import isucon9.qualify.dto.BuyResponse;
 import isucon9.qualify.dto.Category;
 import isucon9.qualify.dto.ErrorResponse;
+import isucon9.qualify.dto.InitializeRequest;
+import isucon9.qualify.dto.InitializeResponse;
 import isucon9.qualify.dto.Item;
 import isucon9.qualify.dto.ItemDetail;
+import isucon9.qualify.dto.ItemEditRequest;
 import isucon9.qualify.dto.ItemEditResponse;
 import isucon9.qualify.dto.ItemSimple;
 import isucon9.qualify.dto.LoginRequest;
 import isucon9.qualify.dto.NewItemsResponse;
+import isucon9.qualify.dto.PostCompleteRequest;
+import isucon9.qualify.dto.PostShipDoneRequest;
+import isucon9.qualify.dto.PostShipRequest;
+import isucon9.qualify.dto.PostShipResponse;
+import isucon9.qualify.dto.RegisterRequest;
 import isucon9.qualify.dto.SellResponse;
 import isucon9.qualify.dto.SettingResponse;
 import isucon9.qualify.dto.Shipping;
@@ -96,7 +104,10 @@ public class ApiController {
         this.apiService = apiService;
     }
 
-    // mux.HandleFunc(pat.Post("/initialize"), postInitialize)
+    @PostMapping("/initialize")
+    public InitializeResponse postInitialize(@RequestBody InitializeRequest request) {
+        throw new UnsupportedOperationException(); // not implemented
+    }
 
     @GetMapping("/new_items.json")
     public NewItemsResponse index(
@@ -360,8 +371,8 @@ public class ApiController {
     }
 
     @PostMapping("/items/edit")
-    public Object postItemEdit() {
-        return null;
+    public ItemEditResponse postItemEdit(@RequestBody ItemEditRequest request) {
+        throw new UnsupportedOperationException(); // not implemented
     }
 
     @PostMapping("/buy")
@@ -522,10 +533,20 @@ public class ApiController {
         return response;
     }
 
-    // mux.HandleFunc(pat.Post("/ship"), postShip)
-    // mux.HandleFunc(pat.Post("/ship_done"), postShipDone)
-    // mux.HandleFunc(pat.Post("/complete"), postComplete)
-    // mux.HandleFunc(pat.Get("/transactions/:transaction_evidence_id.png"),
+    @PostMapping("/ship")
+    public PostShipResponse postShip(@RequestBody PostShipRequest request) {
+        throw new UnsupportedOperationException(); // not implemented
+    }
+
+    @PostMapping("/ship_done")
+    public BuyResponse postShipDone(@RequestBody PostShipDoneRequest request) {
+        throw new UnsupportedOperationException(); // not implemented
+    }
+
+    @PostMapping("/complete")
+    public BuyResponse postComplete(@RequestBody PostCompleteRequest request) {
+        throw new UnsupportedOperationException(); // not implemented
+    }
 
     @GetMapping("/transactions/{transaction_evidence_id}.png")
     public ResponseEntity<byte[]> getQRCode(@PathVariable("transaction_evidence_id") long transactionEvidenceId) {
@@ -551,6 +572,7 @@ public class ApiController {
         return ResponseEntity.status(HttpStatus.OK).contentType(MediaType.IMAGE_PNG).body(imgBinary);
     }
 
+    @PostMapping("/bump")
     public ItemEditResponse postBump(@RequestBody BumpRequest request) {
         String csrfToken = request.getCsrfToken();
         long itemId = request.getItemId();
@@ -610,8 +632,15 @@ public class ApiController {
         return user;
     }
 
-    // mux.HandleFunc(pat.Post("/register"), postRegister)
-    // mux.HandleFunc(pat.Get("/reports.json"), getReports)
+    @PostMapping("/register")
+    public User postRegister(@RequestBody RegisterRequest request) {
+        throw new UnsupportedOperationException(); // not implemented
+    }
+
+    @GetMapping("/reports.json")
+    public List<TransactionEvidence> getReports() {
+        throw new UnsupportedOperationException(); // not implemented
+    }
 
     private String secureRandomStr(int byteLength) {
         SecureRandom random = new SecureRandom();

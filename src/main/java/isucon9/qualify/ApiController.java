@@ -106,7 +106,13 @@ public class ApiController {
 
     @PostMapping("/initialize")
     public InitializeResponse postInitialize(@RequestBody InitializeRequest request) {
-        throw new UnsupportedOperationException(); // not implemented
+        dataService.initializeDatabase();
+        dataService.addConfig("payment_service_url", request.getPaymentServiceURL());
+        dataService.addConfig("shipment_service_url", request.getShipmentServiceURL());
+        InitializeResponse response = new InitializeResponse();
+        response.setCampaign(0); // キャンペーン実施時には還元率の設定を返す。詳しくはマニュアルを参照のこと。
+        response.setLanguage("Java"); // 実装言語を返す
+        return response;
     }
 
     @GetMapping("/new_items.json")
@@ -372,7 +378,37 @@ public class ApiController {
 
     @PostMapping("/items/edit")
     public ItemEditResponse postItemEdit(@RequestBody ItemEditRequest request) {
-        throw new UnsupportedOperationException(); // not implemented
+        String csrfToken = request.getCsrfToken();
+        long itemId = request.getItemId();
+        throwIfInvalidCsrfToken(csrfToken);
+        throwIfNotPositiveValue(itemId, "item_id param error");
+        int price = request.getItemPrice();
+        if (price < ItemMinPrice || price > ItemMaxPrice) {
+            throw new ApiException(ItemPriceErrMsg, HttpStatus.BAD_REQUEST);
+        }
+        User seller = getUser().orElseThrow(notFound("user not found"));
+        Item targetItem = dataService.getItemById(itemId).orElseThrow(notFound("item not found"));
+        if (targetItem.getSellerId() != seller.getId()) {
+            throw new ApiException("自分の商品以外は編集できません", HttpStatus.FORBIDDEN);
+        }
+
+        targetItem = tx.execute(status -> {
+            Item editing = dataService.getItemByIdForUpdate(itemId).orElseThrow(notFound("item not found"));
+            if (!editing.getStatus().equals(ItemStatusOnSale)) {
+                throw new ApiException("販売中の商品以外編集できません", HttpStatus.FORBIDDEN);
+            }
+            LocalDateTime now = LocalDateTime.now();
+            dataService.editItem(itemId, price, now);
+            Item edited = dataService.getItemById(itemId).orElseThrow(internalServerError("db error"));
+            return edited;
+        });
+
+        ItemEditResponse response = new ItemEditResponse();
+        response.setItemId(targetItem.getId());
+        response.setItemPrice(targetItem.getPrice());
+        response.setItemCreatedAt(targetItem.getCreatedAt().toEpochSecond(ZoneOffset.UTC));
+        response.setItemUpdatedAt(targetItem.getUpdatedAt().toEpochSecond(ZoneOffset.UTC));
+        return response;
     }
 
     @PostMapping("/buy")
@@ -413,7 +449,7 @@ public class ApiController {
             long transactionEvidenceId = evidenceInserted.getId();
 
             LocalDateTime now = LocalDateTime.now();
-            dataService.updateItem(targetItem.getId(), buyer.getId(), now);
+            dataService.buyItem(targetItem.getId(), buyer.getId(), now);
 
             ApiShipmentCreateRequest createRequest = new ApiShipmentCreateRequest();
             createRequest.setToAddress(buyer.getAddress());
@@ -594,7 +630,7 @@ public class ApiController {
                 throw new ApiException("Bump not allowed", HttpStatus.FORBIDDEN);
             }
 
-            dataService.updateItem(itemId, now);
+            dataService.bumpItem(itemId, now);
             dataService.updateUser(seller.getId(), now);
             Item bumped = dataService.getItemById(itemId).orElseThrow(internalServerError("db error"));
             return bumped;

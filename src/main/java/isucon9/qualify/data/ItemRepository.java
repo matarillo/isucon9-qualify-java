@@ -41,6 +41,9 @@ public interface ItemRepository extends CrudRepository<Item, Long> {
     @Query("UPDATE `items` SET `created_at` = :createdAt, `updated_at` = :updatedAt WHERE id = :id")
     public boolean update(long id, LocalDateTime createdAt, LocalDateTime updatedAt);
 
-    @Query("UPDATE `items` SET `buyer_id` = :buyerId, `status` = :status, `updated_at` = ::updatedAt WHERE `id` = :id")
+    @Query("UPDATE `items` SET `buyer_id` = :buyerId, `status` = :status, `updated_at` = :updatedAt WHERE `id` = :id")
     public boolean update(long id, long buyerId, String status, LocalDateTime updatedAt);
+
+    @Query("UPDATE `items` SET `price` = :price, `updated_at` = :updatedAt WHERE `id` = :id")
+    public boolean update(long id, int price, LocalDateTime updatedAt);
 }

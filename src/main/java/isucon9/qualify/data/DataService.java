@@ -16,6 +16,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
+import javax.sql.DataSource;
+
+import org.springframework.boot.autoconfigure.sql.init.SqlDataSourceScriptDatabaseInitializer;
+import org.springframework.boot.autoconfigure.sql.init.SqlInitializationProperties;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 
@@ -28,6 +32,8 @@ import isucon9.qualify.dto.UserSimple;
 
 @Service
 public class DataService {
+    private final SqlInitializationProperties properties;
+    private final DataSource dataSource;
     private final JdbcTemplate jdbcTemplate;
     private final UserRepository userRepository;
     private final CategoryRepository categoryRepository;
@@ -35,15 +41,23 @@ public class DataService {
     private final TransactionEvidenceRepository transactionEvidenceRepository;
     private final ShippingRepository shippingRepository;
 
-    public DataService(JdbcTemplate jdbcTemplate, UserRepository userRepository, CategoryRepository categoryRepository,
-            ItemRepository itemRepository, TransactionEvidenceRepository transactionEvidenceRepository,
-            ShippingRepository shippingRepository) {
+    public DataService(SqlInitializationProperties properties, DataSource dataSource, JdbcTemplate jdbcTemplate,
+            UserRepository userRepository, CategoryRepository categoryRepository, ItemRepository itemRepository,
+            TransactionEvidenceRepository transactionEvidenceRepository, ShippingRepository shippingRepository) {
+        this.properties = properties;
+        this.dataSource = dataSource;
         this.jdbcTemplate = jdbcTemplate;
         this.userRepository = userRepository;
         this.categoryRepository = categoryRepository;
         this.itemRepository = itemRepository;
         this.transactionEvidenceRepository = transactionEvidenceRepository;
         this.shippingRepository = shippingRepository;
+    }
+
+    public void initializeDatabase() {
+        SqlDataSourceScriptDatabaseInitializer initializer = new SqlDataSourceScriptDatabaseInitializer(dataSource,
+                properties);
+        initializer.initializeDatabase();
     }
 
     private Optional<String> getConfig(String name) {
@@ -66,6 +80,11 @@ public class DataService {
     public String getShipmentServiceURL() {
         Optional<String> config = getConfig("shipment_service_url");
         return config.orElse(DefaultShipmentServiceURL);
+    }
+
+    public int addConfig(String name, String value) {
+        int rowCount = jdbcTemplate.update("INSERT INTO `configs` (`name`, `val`) VALUES (?, ?) ON DUPLICATE KEY UPDATE `val` = VALUES(`val`)", name, value);
+        return rowCount;
     }
 
     public Optional<User> getUserById(long userId) {
@@ -196,12 +215,16 @@ public class DataService {
         return row;
     }
 
-    public boolean updateItem(long itemId, LocalDateTime dateTime) {
+    public boolean bumpItem(long itemId, LocalDateTime dateTime) {
         return itemRepository.update(itemId, dateTime, dateTime);
     }
 
-    public boolean updateItem(long itemId, long buyerId, LocalDateTime dateTime) {
+    public boolean buyItem(long itemId, long buyerId, LocalDateTime dateTime) {
         return itemRepository.update(itemId, buyerId, ItemStatusTrading, dateTime);
+    }
+
+    public boolean editItem(long itemId, int price, LocalDateTime dateTime) {
+        return itemRepository.update(itemId, price, dateTime);
     }
 
     public Item saveItem(Item newItem) {

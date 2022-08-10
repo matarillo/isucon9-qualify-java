@@ -20,6 +20,7 @@ import javax.sql.DataSource;
 
 import org.springframework.boot.autoconfigure.sql.init.SqlDataSourceScriptDatabaseInitializer;
 import org.springframework.boot.autoconfigure.sql.init.SqlInitializationProperties;
+import org.springframework.boot.sql.init.DatabaseInitializationMode;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 
@@ -55,6 +56,7 @@ public class DataService {
     }
 
     public void initializeDatabase() {
+        properties.setMode(DatabaseInitializationMode.ALWAYS);
         SqlDataSourceScriptDatabaseInitializer initializer = new SqlDataSourceScriptDatabaseInitializer(dataSource,
                 properties);
         initializer.initializeDatabase();

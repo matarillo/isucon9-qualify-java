@@ -20,5 +20,6 @@ dependencies {
 	implementation 'org.springframework.boot:spring-boot-starter-validation'
 	implementation 'org.springframework.security:spring-security-core'
 	implementation 'org.springframework.session:spring-session-core'
+	implementation 'org.apache.httpcomponents:httpclient'
 	runtimeOnly 'mysql:mysql-connector-java'
 }

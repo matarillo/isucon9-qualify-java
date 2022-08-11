@@ -1,11 +1,16 @@
 package isucon9.qualify.api;
 
+import java.net.URI;
+
+import org.apache.http.client.methods.HttpEntityEnclosingRequestBase;
+import org.apache.http.client.methods.HttpUriRequest;
 import org.springframework.boot.web.client.RestTemplateBuilder;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.client.HttpComponentsClientHttpRequestFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestTemplate;
@@ -27,7 +32,9 @@ public class ApiService {
     private final RestTemplate restTemplate;
 
     public ApiService(RestTemplateBuilder restTemplateBuilder) {
-        this.restTemplate = restTemplateBuilder.build();
+        this.restTemplate = restTemplateBuilder
+                .requestFactory(CustomRequestFactory.class)
+                .build();
     }
 
     public ApiPaymentServiceTokenResponse getPaymentToken(String paymentUrl, ApiPaymentServiceTokenRequest request) {
@@ -91,6 +98,28 @@ public class ApiService {
             return resEntity.getBody();
         } catch (RestClientException e) {
             throw new ApiException("failed to request to shipment service", HttpStatus.INTERNAL_SERVER_ERROR, e);
+        }
+    }
+
+    private static class CustomRequestFactory extends HttpComponentsClientHttpRequestFactory {
+
+        @Override
+        protected HttpUriRequest createHttpUriRequest(HttpMethod httpMethod, URI uri) {
+            if (HttpMethod.GET.equals(httpMethod)) {
+                return new GetWithRequestBody(uri);
+            }
+            return super.createHttpUriRequest(httpMethod, uri);
+        }
+    }
+
+    private static class GetWithRequestBody extends HttpEntityEnclosingRequestBase {
+        public GetWithRequestBody(URI uri) {
+            super.setURI(uri);
+        }
+
+        @Override
+        public String getMethod() {
+            return HttpMethod.GET.name();
         }
     }
 }

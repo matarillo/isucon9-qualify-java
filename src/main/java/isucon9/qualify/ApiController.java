@@ -5,6 +5,7 @@ import static isucon9.qualify.Const.ItemMaxPrice;
 import static isucon9.qualify.Const.ItemMinPrice;
 import static isucon9.qualify.Const.ItemPriceErrMsg;
 import static isucon9.qualify.Const.ItemStatusOnSale;
+import static isucon9.qualify.Const.ItemStatusTrading;
 import static isucon9.qualify.Const.ItemsPerPage;
 import static isucon9.qualify.Const.PaymentServiceIsucariApiKey;
 import static isucon9.qualify.Const.PaymentServiceIsucariShopId;
@@ -56,6 +57,7 @@ import isucon9.qualify.dto.ApiPaymentServiceTokenRequest;
 import isucon9.qualify.dto.ApiPaymentServiceTokenResponse;
 import isucon9.qualify.dto.ApiShipmentCreateRequest;
 import isucon9.qualify.dto.ApiShipmentCreateResponse;
+import isucon9.qualify.dto.ApiShipmentRequest;
 import isucon9.qualify.dto.ApiShipmentStatusRequest;
 import isucon9.qualify.dto.ApiShipmentStatusResponse;
 import isucon9.qualify.dto.BumpRequest;
@@ -571,7 +573,41 @@ public class ApiController {
 
     @PostMapping("/ship")
     public PostShipResponse postShip(@RequestBody PostShipRequest request) {
-        throw new UnsupportedOperationException(); // not implemented
+        String csrfToken = request.getCsrfToken();
+        long itemId = request.getItemId();
+        throwIfInvalidCsrfToken(csrfToken);
+        throwIfNotPositiveValue(itemId, "item_id param error");
+        User seller = getUser().orElseThrow(notFound("user not found"));
+        TransactionEvidence transactionEvidence = dataService.getTransactionEvidenceByItemId(itemId)
+                .orElseThrow(notFound("transaction_evidences not found"));
+        if (transactionEvidence.getSellerId() != seller.getId()) {
+            throw new ApiException("権限がありません", HttpStatus.FORBIDDEN);
+        }
+
+        String reserveId = tx.execute(status -> {
+            Item item = dataService.getItemByIdForUpdate(itemId).orElseThrow(notFound("item not found"));
+            if (!item.getStatus().equals(ItemStatusTrading)) {
+                throw new ApiException("商品が取引中ではありません", HttpStatus.FORBIDDEN);
+            }
+            TransactionEvidence evidence = dataService.getTransactionEvidenceByIdForUpdate(transactionEvidence.getId())
+                    .orElseThrow(notFound("transaction_evidences not found"));
+            if (!transactionEvidence.getStatus().equals(TransactionEvidenceStatusWaitShipping)) {
+                throw new ApiException("準備ができていません", HttpStatus.FORBIDDEN);
+            }
+            Shipping shipping = dataService.getShippingByIdForUpdate(transactionEvidence.getId())
+                    .orElseThrow(notFound("shippings not found"));
+            ApiShipmentRequest req = new ApiShipmentRequest();
+            req.setReserveId(shipping.getReserveId());
+            byte[] img = apiService.requestShipment(dataService.getShipmentServiceURL(), req);
+            LocalDateTime now = LocalDateTime.now();
+            dataService.requestShipping(transactionEvidence.getId(), img, now);
+            return shipping.getReserveId();
+        });
+
+        PostShipResponse response = new PostShipResponse();
+        response.setPath(String.format("/transactions/%d.png", transactionEvidence.getId()));
+        response.setReserveId(reserveId);
+        return response;
     }
 
     @PostMapping("/ship_done")

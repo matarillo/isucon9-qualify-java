@@ -8,6 +8,7 @@ import static isucon9.qualify.Const.ItemStatusSoldOut;
 import static isucon9.qualify.Const.ItemStatusStop;
 import static isucon9.qualify.Const.ItemStatusTrading;
 import static isucon9.qualify.Const.ItemsPerPage;
+import static isucon9.qualify.Const.ShippingsStatusWaitPickup;
 import static isucon9.qualify.Const.TransactionsPerPage;
 
 import java.time.LocalDateTime;
@@ -221,12 +222,12 @@ public class DataService {
         return itemRepository.update(itemId, dateTime, dateTime);
     }
 
-    public boolean buyItem(long itemId, long buyerId, LocalDateTime dateTime) {
-        return itemRepository.update(itemId, buyerId, ItemStatusTrading, dateTime);
+    public boolean buyItem(long itemId, long buyerId, LocalDateTime updatedAt) {
+        return itemRepository.update(itemId, buyerId, ItemStatusTrading, updatedAt);
     }
 
-    public boolean editItem(long itemId, int price, LocalDateTime dateTime) {
-        return itemRepository.update(itemId, price, dateTime);
+    public boolean editItem(long itemId, int price, LocalDateTime updatedAt) {
+        return itemRepository.update(itemId, price, updatedAt);
     }
 
     public Item saveItem(Item newItem) {
@@ -238,6 +239,14 @@ public class DataService {
             return Optional.empty();
         }
         Optional<TransactionEvidence> row = transactionEvidenceRepository.findById(transactionEvidenceId);
+        return row;
+    }
+
+    public Optional<TransactionEvidence> getTransactionEvidenceByIdForUpdate(long transactionEvidenceId) {
+        if (transactionEvidenceId <= 0L) {
+            return Optional.empty();
+        }
+        Optional<TransactionEvidence> row = transactionEvidenceRepository.findByIdForUpdate(transactionEvidenceId);
         return row;
     }
 
@@ -261,8 +270,20 @@ public class DataService {
         return row;
     }
 
+    public Optional<Shipping> getShippingByIdForUpdate(long transactionEvidenceId) {
+        if (transactionEvidenceId <= 0L) {
+            return Optional.empty();
+        }
+        Optional<Shipping> row = shippingRepository.findByIdForUpdate(transactionEvidenceId);
+        return row;
+    }
+
     public Shipping saveShipping(Shipping newShipping) {
         return shippingRepository.save(newShipping);
+    }
+
+    public boolean requestShipping(long transactionEvidenceId, byte[] imgBinary, LocalDateTime updatedAt) {
+        return shippingRepository.update(transactionEvidenceId, ShippingsStatusWaitPickup, imgBinary, updatedAt);
     }
 
     public List<Integer> getCategoryIdsByRootCategoryId(int parentId) {

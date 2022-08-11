@@ -2,6 +2,7 @@ package isucon9.qualify.data;
 
 import java.util.Optional;
 
+import org.springframework.data.jdbc.repository.query.Query;
 import org.springframework.data.repository.CrudRepository;
 
 import isucon9.qualify.dto.TransactionEvidence;
@@ -10,4 +11,6 @@ public interface TransactionEvidenceRepository extends CrudRepository<Transactio
 
     public Optional<TransactionEvidence> findByItemId(long itemId);
 
+    @Query("SELECT * FROM `transaction_evidences` WHERE `id` = :id FOR UPDATE")
+    public Optional<TransactionEvidence> findByIdForUpdate(long id);
 }

@@ -9,6 +9,8 @@ import static isucon9.qualify.Const.ItemStatusStop;
 import static isucon9.qualify.Const.ItemStatusTrading;
 import static isucon9.qualify.Const.ItemsPerPage;
 import static isucon9.qualify.Const.ShippingsStatusWaitPickup;
+import static isucon9.qualify.Const.ShippingsStatusDone;
+import static isucon9.qualify.Const.TransactionEvidenceStatusDone;
 import static isucon9.qualify.Const.TransactionsPerPage;
 
 import java.time.LocalDateTime;
@@ -230,6 +232,10 @@ public class DataService {
         return itemRepository.update(itemId, price, updatedAt);
     }
 
+    public boolean updateItemToBeSoldOut(long itemId, LocalDateTime updatedAt) {
+        return itemRepository.update(itemId, ItemStatusSoldOut, updatedAt);
+    }
+
     public Item saveItem(Item newItem) {
         return itemRepository.save(newItem);
     }
@@ -258,6 +264,10 @@ public class DataService {
         return row;
     }
 
+    public boolean updateTransactionEvidenceToBeDone(long transactionEvidenceId, LocalDateTime updatedAt) {
+        return transactionEvidenceRepository.update(transactionEvidenceId, TransactionEvidenceStatusDone, updatedAt);
+    }
+
     public TransactionEvidence saveTransactionEvidence(TransactionEvidence newEvidence) {
         return transactionEvidenceRepository.save(newEvidence);
     }
@@ -284,6 +294,10 @@ public class DataService {
 
     public boolean requestShipping(long transactionEvidenceId, byte[] imgBinary, LocalDateTime updatedAt) {
         return shippingRepository.update(transactionEvidenceId, ShippingsStatusWaitPickup, imgBinary, updatedAt);
+    }
+
+    public boolean doneShipping(long transactionEvidenceId, LocalDateTime updatedAt) {
+        return shippingRepository.update(transactionEvidenceId, ShippingsStatusDone, updatedAt);
     }
 
     public List<Integer> getCategoryIdsByRootCategoryId(int parentId) {

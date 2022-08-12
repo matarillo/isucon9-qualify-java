@@ -12,7 +12,9 @@ import static isucon9.qualify.Const.PaymentServiceIsucariShopId;
 import static isucon9.qualify.Const.ShippingsStatusInitial;
 import static isucon9.qualify.Const.ShippingsStatusShipping;
 import static isucon9.qualify.Const.ShippingsStatusWaitPickup;
+import static isucon9.qualify.Const.ShippingsStatusDone;
 import static isucon9.qualify.Const.TransactionEvidenceStatusWaitShipping;
+import static isucon9.qualify.Const.TransactionEvidenceStatusWaitDone;
 import static isucon9.qualify.Const.TransactionsPerPage;
 
 import java.io.IOException;
@@ -612,7 +614,45 @@ public class ApiController {
 
     @PostMapping("/ship_done")
     public BuyResponse postShipDone(@RequestBody PostShipDoneRequest request) {
-        throw new UnsupportedOperationException(); // not implemented
+        String csrfToken = request.getCsrfToken();
+        long itemId = request.getItemId();
+        throwIfInvalidCsrfToken(csrfToken);
+        throwIfNotPositiveValue(itemId, "item_id param error");
+        User seller = getUser().orElseThrow(notFound("user not found"));
+        TransactionEvidence transactionEvidence = dataService.getTransactionEvidenceByItemId(itemId)
+                .orElseThrow(notFound("transaction_evidences not found"));
+        if (transactionEvidence.getSellerId() != seller.getId()) {
+            throw new ApiException("権限がありません", HttpStatus.FORBIDDEN);
+        }
+
+        String reserveId = tx.execute(status -> {
+            Item item = dataService.getItemByIdForUpdate(itemId).orElseThrow(notFound("item not found"));
+            if (!item.getStatus().equals(ItemStatusTrading)) {
+                throw new ApiException("商品が取引中ではありません", HttpStatus.FORBIDDEN);
+            }
+            TransactionEvidence evidence = dataService.getTransactionEvidenceByIdForUpdate(transactionEvidence.getId())
+                    .orElseThrow(notFound("transaction_evidences not found"));
+            if (!transactionEvidence.getStatus().equals(TransactionEvidenceStatusWaitDone)) {
+                throw new ApiException("準備ができていません", HttpStatus.FORBIDDEN);
+            }
+            Shipping shipping = dataService.getShippingByIdForUpdate(transactionEvidence.getId())
+                    .orElseThrow(notFound("shippings not found"));
+            ApiShipmentStatusRequest req = new ApiShipmentStatusRequest();
+            req.setReserveId(shipping.getReserveId());
+            ApiShipmentStatusResponse res = apiService.getShipmentStatus(dataService.getShipmentServiceURL(), req);
+            if (!res.getStatus().equals(ShippingsStatusDone)) {
+                throw new ApiException("shipment service側で配送完了になっていません", HttpStatus.BAD_REQUEST);
+            }
+            LocalDateTime now = LocalDateTime.now();
+            dataService.doneShipping(transactionEvidence.getId(), now);
+            dataService.updateTransactionEvidenceToBeDone(transactionEvidence.getId(), now);
+            dataService.updateItemToBeSoldOut(itemId, now);
+            return shipping.getReserveId();
+        });
+
+        BuyResponse response = new BuyResponse();
+        response.setTransactionEvidenceId(transactionEvidence.getId());
+        return response;
     }
 
     @PostMapping("/complete")

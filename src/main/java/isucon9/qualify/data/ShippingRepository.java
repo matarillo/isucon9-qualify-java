@@ -16,4 +16,6 @@ public interface ShippingRepository extends CrudRepository<Shipping, Long> {
     @Query("UPDATE `shippings` SET `status` = :status, `img_binary` = :imgBinary, `updated_at` = :updatedAt WHERE `transaction_evidence_id` = :transactionEvidenceId")
     public boolean update(long transactionEvidenceId, String status, byte[] imgBinary, LocalDateTime updatedAt);
 
+    @Query("UPDATE `shippings` SET `status` = :status, `updated_at` = :updatedAt WHERE `transaction_evidence_id` = :transactionEvidenceId")
+    public boolean update(long transactionEvidenceId, String status, LocalDateTime updatedAt);
 }

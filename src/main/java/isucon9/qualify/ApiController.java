@@ -5,18 +5,18 @@ import static isucon9.qualify.Const.ItemMaxPrice;
 import static isucon9.qualify.Const.ItemMinPrice;
 import static isucon9.qualify.Const.ItemPriceErrMsg;
 import static isucon9.qualify.Const.ItemStatusOnSale;
-import static isucon9.qualify.Const.ItemStatusTrading;
 import static isucon9.qualify.Const.ItemStatusSoldOut;
+import static isucon9.qualify.Const.ItemStatusTrading;
 import static isucon9.qualify.Const.ItemsPerPage;
 import static isucon9.qualify.Const.PaymentServiceIsucariApiKey;
 import static isucon9.qualify.Const.PaymentServiceIsucariShopId;
+import static isucon9.qualify.Const.ShippingsStatusDone;
 import static isucon9.qualify.Const.ShippingsStatusInitial;
 import static isucon9.qualify.Const.ShippingsStatusShipping;
 import static isucon9.qualify.Const.ShippingsStatusWaitPickup;
-import static isucon9.qualify.Const.ShippingsStatusDone;
-import static isucon9.qualify.Const.TransactionEvidenceStatusWaitShipping;
-import static isucon9.qualify.Const.TransactionEvidenceStatusWaitDone;
 import static isucon9.qualify.Const.TransactionEvidenceStatusDone;
+import static isucon9.qualify.Const.TransactionEvidenceStatusWaitDone;
+import static isucon9.qualify.Const.TransactionEvidenceStatusWaitShipping;
 import static isucon9.qualify.Const.TransactionsPerPage;
 
 import java.io.IOException;
@@ -635,10 +635,10 @@ public class ApiController {
             }
             TransactionEvidence evidence = dataService.getTransactionEvidenceByIdForUpdate(transactionEvidence.getId())
                     .orElseThrow(notFound("transaction_evidences not found"));
-            if (!transactionEvidence.getStatus().equals(TransactionEvidenceStatusWaitShipping)) {
+            if (!evidence.getStatus().equals(TransactionEvidenceStatusWaitShipping)) {
                 throw new ApiException("準備ができていません", HttpStatus.FORBIDDEN);
             }
-            Shipping shipping = dataService.getShippingByIdForUpdate(transactionEvidence.getId())
+            Shipping shipping = dataService.getShippingByIdForUpdate(evidence.getId())
                     .orElseThrow(notFound("shippings not found"));
             ApiShipmentStatusRequest req = new ApiShipmentStatusRequest();
             req.setReserveId(shipping.getReserveId());
@@ -648,9 +648,9 @@ public class ApiController {
             }
 
             LocalDateTime now = LocalDateTime.now();
-            dataService.updateShippingStatus(transactionEvidence.getId(), res.getStatus(), now);
-            dataService.updateTransactionEvidenceStatus(transactionEvidence.getId(), TransactionEvidenceStatusWaitDone, now);
-            return transactionEvidence.getId();
+            dataService.updateShippingStatus(evidence.getId(), res.getStatus(), now);
+            dataService.updateTransactionEvidenceStatus(evidence.getId(), TransactionEvidenceStatusWaitDone, now);
+            return evidence.getId();
         });
 
         BuyResponse response = new BuyResponse();
@@ -678,10 +678,10 @@ public class ApiController {
             }
             TransactionEvidence evidence = dataService.getTransactionEvidenceByItemIdForUpdate(itemId)
                     .orElseThrow(notFound("transaction_evidences not found"));
-            if (!transactionEvidence.getStatus().equals(TransactionEvidenceStatusWaitDone)) {
+            if (!evidence.getStatus().equals(TransactionEvidenceStatusWaitDone)) {
                 throw new ApiException("準備ができていません", HttpStatus.FORBIDDEN);
             }
-            Shipping shipping = dataService.getShippingByIdForUpdate(transactionEvidence.getId())
+            Shipping shipping = dataService.getShippingByIdForUpdate(evidence.getId())
                     .orElseThrow(notFound("shippings not found"));
             ApiShipmentStatusRequest req = new ApiShipmentStatusRequest();
             req.setReserveId(shipping.getReserveId());
@@ -691,10 +691,10 @@ public class ApiController {
             }
 
             LocalDateTime now = LocalDateTime.now();
-            dataService.updateShippingStatus(transactionEvidence.getId(), ShippingsStatusDone, now);
-            dataService.updateTransactionEvidenceStatus(transactionEvidence.getId(), TransactionEvidenceStatusDone, now);
+            dataService.updateShippingStatus(evidence.getId(), ShippingsStatusDone, now);
+            dataService.updateTransactionEvidenceStatus(evidence.getId(), TransactionEvidenceStatusDone, now);
             dataService.updateItemStatus(itemId, ItemStatusSoldOut, now);
-            return transactionEvidence.getId();
+            return evidence.getId();
         });
 
         BuyResponse response = new BuyResponse();

@@ -9,8 +9,6 @@ import static isucon9.qualify.Const.ItemStatusStop;
 import static isucon9.qualify.Const.ItemStatusTrading;
 import static isucon9.qualify.Const.ItemsPerPage;
 import static isucon9.qualify.Const.ShippingsStatusWaitPickup;
-import static isucon9.qualify.Const.ShippingsStatusDone;
-import static isucon9.qualify.Const.TransactionEvidenceStatusDone;
 import static isucon9.qualify.Const.TransactionsPerPage;
 
 import java.time.LocalDateTime;
@@ -88,7 +86,9 @@ public class DataService {
     }
 
     public int addConfig(String name, String value) {
-        int rowCount = jdbcTemplate.update("INSERT INTO `configs` (`name`, `val`) VALUES (?, ?) ON DUPLICATE KEY UPDATE `val` = VALUES(`val`)", name, value);
+        int rowCount = jdbcTemplate.update(
+                "INSERT INTO `configs` (`name`, `val`) VALUES (?, ?) ON DUPLICATE KEY UPDATE `val` = VALUES(`val`)",
+                name, value);
         return rowCount;
     }
 

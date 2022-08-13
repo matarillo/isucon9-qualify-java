@@ -6,6 +6,7 @@ import static isucon9.qualify.Const.ItemMinPrice;
 import static isucon9.qualify.Const.ItemPriceErrMsg;
 import static isucon9.qualify.Const.ItemStatusOnSale;
 import static isucon9.qualify.Const.ItemStatusTrading;
+import static isucon9.qualify.Const.ItemStatusSoldOut;
 import static isucon9.qualify.Const.ItemsPerPage;
 import static isucon9.qualify.Const.PaymentServiceIsucariApiKey;
 import static isucon9.qualify.Const.PaymentServiceIsucariShopId;
@@ -15,6 +16,7 @@ import static isucon9.qualify.Const.ShippingsStatusWaitPickup;
 import static isucon9.qualify.Const.ShippingsStatusDone;
 import static isucon9.qualify.Const.TransactionEvidenceStatusWaitShipping;
 import static isucon9.qualify.Const.TransactionEvidenceStatusWaitDone;
+import static isucon9.qualify.Const.TransactionEvidenceStatusDone;
 import static isucon9.qualify.Const.TransactionsPerPage;
 
 import java.io.IOException;
@@ -601,6 +603,7 @@ public class ApiController {
             ApiShipmentRequest req = new ApiShipmentRequest();
             req.setReserveId(shipping.getReserveId());
             byte[] img = apiService.requestShipment(dataService.getShipmentServiceURL(), req);
+
             LocalDateTime now = LocalDateTime.now();
             dataService.requestShipping(transactionEvidence.getId(), img, now);
             return shipping.getReserveId();
@@ -625,12 +628,55 @@ public class ApiController {
             throw new ApiException("権限がありません", HttpStatus.FORBIDDEN);
         }
 
-        String reserveId = tx.execute(status -> {
+        long transactionEvidenceId = tx.execute(status -> {
             Item item = dataService.getItemByIdForUpdate(itemId).orElseThrow(notFound("item not found"));
             if (!item.getStatus().equals(ItemStatusTrading)) {
                 throw new ApiException("商品が取引中ではありません", HttpStatus.FORBIDDEN);
             }
             TransactionEvidence evidence = dataService.getTransactionEvidenceByIdForUpdate(transactionEvidence.getId())
+                    .orElseThrow(notFound("transaction_evidences not found"));
+            if (!transactionEvidence.getStatus().equals(TransactionEvidenceStatusWaitShipping)) {
+                throw new ApiException("準備ができていません", HttpStatus.FORBIDDEN);
+            }
+            Shipping shipping = dataService.getShippingByIdForUpdate(transactionEvidence.getId())
+                    .orElseThrow(notFound("shippings not found"));
+            ApiShipmentStatusRequest req = new ApiShipmentStatusRequest();
+            req.setReserveId(shipping.getReserveId());
+            ApiShipmentStatusResponse res = apiService.getShipmentStatus(dataService.getShipmentServiceURL(), req);
+            if (!(res.getStatus().equals(ShippingsStatusShipping) || res.getStatus().equals(ShippingsStatusDone))) {
+                throw new ApiException("shipment service側で配送中か配送完了になっていません", HttpStatus.BAD_REQUEST);
+            }
+
+            LocalDateTime now = LocalDateTime.now();
+            dataService.updateShippingStatus(transactionEvidence.getId(), res.getStatus(), now);
+            dataService.updateTransactionEvidenceStatus(transactionEvidence.getId(), TransactionEvidenceStatusWaitDone, now);
+            return transactionEvidence.getId();
+        });
+
+        BuyResponse response = new BuyResponse();
+        response.setTransactionEvidenceId(transactionEvidenceId);
+        return response;
+    }
+
+    @PostMapping("/complete")
+    public BuyResponse postComplete(@RequestBody PostCompleteRequest request) {
+        String csrfToken = request.getCsrfToken();
+        long itemId = request.getItemId();
+        throwIfInvalidCsrfToken(csrfToken);
+        throwIfNotPositiveValue(itemId, "item_id param error");
+        User buyer = getUser().orElseThrow(notFound("user not found"));
+        TransactionEvidence transactionEvidence = dataService.getTransactionEvidenceByItemId(itemId)
+                .orElseThrow(notFound("transaction_evidences not found"));
+        if (transactionEvidence.getBuyerId() != buyer.getId()) {
+            throw new ApiException("権限がありません", HttpStatus.FORBIDDEN);
+        }
+
+        long transactionEvidenceId = tx.execute(status -> {
+            Item item = dataService.getItemByIdForUpdate(itemId).orElseThrow(notFound("item not found"));
+            if (!item.getStatus().equals(ItemStatusTrading)) {
+                throw new ApiException("商品が取引中ではありません", HttpStatus.FORBIDDEN);
+            }
+            TransactionEvidence evidence = dataService.getTransactionEvidenceByItemIdForUpdate(itemId)
                     .orElseThrow(notFound("transaction_evidences not found"));
             if (!transactionEvidence.getStatus().equals(TransactionEvidenceStatusWaitDone)) {
                 throw new ApiException("準備ができていません", HttpStatus.FORBIDDEN);
@@ -643,21 +689,17 @@ public class ApiController {
             if (!res.getStatus().equals(ShippingsStatusDone)) {
                 throw new ApiException("shipment service側で配送完了になっていません", HttpStatus.BAD_REQUEST);
             }
+
             LocalDateTime now = LocalDateTime.now();
-            dataService.doneShipping(transactionEvidence.getId(), now);
-            dataService.updateTransactionEvidenceToBeDone(transactionEvidence.getId(), now);
-            dataService.updateItemToBeSoldOut(itemId, now);
-            return shipping.getReserveId();
+            dataService.updateShippingStatus(transactionEvidence.getId(), ShippingsStatusDone, now);
+            dataService.updateTransactionEvidenceStatus(transactionEvidence.getId(), TransactionEvidenceStatusDone, now);
+            dataService.updateItemStatus(itemId, ItemStatusSoldOut, now);
+            return transactionEvidence.getId();
         });
 
         BuyResponse response = new BuyResponse();
-        response.setTransactionEvidenceId(transactionEvidence.getId());
+        response.setTransactionEvidenceId(transactionEvidenceId);
         return response;
-    }
-
-    @PostMapping("/complete")
-    public BuyResponse postComplete(@RequestBody PostCompleteRequest request) {
-        throw new UnsupportedOperationException(); // not implemented
     }
 
     @GetMapping("/transactions/{transaction_evidence_id}.png")

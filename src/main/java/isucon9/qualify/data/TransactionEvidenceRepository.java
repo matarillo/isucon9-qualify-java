@@ -15,6 +15,9 @@ public interface TransactionEvidenceRepository extends CrudRepository<Transactio
     @Query("SELECT * FROM `transaction_evidences` WHERE `id` = :id FOR UPDATE")
     public Optional<TransactionEvidence> findByIdForUpdate(long id);
 
+    @Query("SELECT * FROM `transaction_evidences` WHERE `item_id` = :itemId FOR UPDATE")
+    public Optional<TransactionEvidence> findByItemIdForUpdate(long itemId);
+
     @Query("UPDATE `transaction_evidences` SET `status` = :status, `updated_at` = :updatedAt WHERE `id` = :id")
     public boolean update(long id, String status, LocalDateTime updateAt);
 }

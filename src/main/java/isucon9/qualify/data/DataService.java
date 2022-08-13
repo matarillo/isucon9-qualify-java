@@ -232,8 +232,8 @@ public class DataService {
         return itemRepository.update(itemId, price, updatedAt);
     }
 
-    public boolean updateItemToBeSoldOut(long itemId, LocalDateTime updatedAt) {
-        return itemRepository.update(itemId, ItemStatusSoldOut, updatedAt);
+    public boolean updateItemStatus(long itemId, String status, LocalDateTime updatedAt) {
+        return itemRepository.update(itemId, status, updatedAt);
     }
 
     public Item saveItem(Item newItem) {
@@ -264,8 +264,16 @@ public class DataService {
         return row;
     }
 
-    public boolean updateTransactionEvidenceToBeDone(long transactionEvidenceId, LocalDateTime updatedAt) {
-        return transactionEvidenceRepository.update(transactionEvidenceId, TransactionEvidenceStatusDone, updatedAt);
+    public Optional<TransactionEvidence> getTransactionEvidenceByItemIdForUpdate(long itemId) {
+        if (itemId <= 0L) {
+            return Optional.empty();
+        }
+        Optional<TransactionEvidence> row = transactionEvidenceRepository.findByItemIdForUpdate(itemId);
+        return row;
+    }
+
+    public boolean updateTransactionEvidenceStatus(long transactionEvidenceId, String status, LocalDateTime updatedAt) {
+        return transactionEvidenceRepository.update(transactionEvidenceId, status, updatedAt);
     }
 
     public TransactionEvidence saveTransactionEvidence(TransactionEvidence newEvidence) {
@@ -296,8 +304,8 @@ public class DataService {
         return shippingRepository.update(transactionEvidenceId, ShippingsStatusWaitPickup, imgBinary, updatedAt);
     }
 
-    public boolean doneShipping(long transactionEvidenceId, LocalDateTime updatedAt) {
-        return shippingRepository.update(transactionEvidenceId, ShippingsStatusDone, updatedAt);
+    public boolean updateShippingStatus(long transactionEvidenceId, String status, LocalDateTime updatedAt) {
+        return shippingRepository.update(transactionEvidenceId, status, updatedAt);
     }
 
     public List<Integer> getCategoryIdsByRootCategoryId(int parentId) {

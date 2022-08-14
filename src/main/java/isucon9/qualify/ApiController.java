@@ -1,5 +1,6 @@
 package isucon9.qualify;
 
+import static isucon9.qualify.Const.BcryptCost;
 import static isucon9.qualify.Const.BumpChargeSeconds;
 import static isucon9.qualify.Const.ItemMaxPrice;
 import static isucon9.qualify.Const.ItemMinPrice;
@@ -35,6 +36,7 @@ import java.util.function.Supplier;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.core.io.ClassPathResource;
+import org.springframework.data.relational.core.conversion.DbActionExecutionException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -54,6 +56,8 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.server.ResponseStatusException;
+
+import com.mysql.cj.util.StringUtils;
 
 import isucon9.qualify.api.ApiService;
 import isucon9.qualify.data.DataService;
@@ -91,6 +95,7 @@ import isucon9.qualify.dto.TransactionsResponse;
 import isucon9.qualify.dto.User;
 import isucon9.qualify.dto.UserItemsResponse;
 import isucon9.qualify.dto.UserSimple;
+import isucon9.qualify.dto.UserToRegister;
 import isucon9.qualify.web.SessionService;
 
 @RestController
@@ -788,7 +793,38 @@ public class ApiController {
 
     @PostMapping("/register")
     public User postRegister(@RequestBody RegisterRequest request) {
-        throw new UnsupportedOperationException(); // not implemented
+        String accountName = request.getAccountName();
+        String address = request.getAddress();
+        String password = request.getPassword();
+        if (StringUtils.isNullOrEmpty(accountName) || StringUtils.isNullOrEmpty(password) || StringUtils.isNullOrEmpty(address)) {
+            throw new ApiException("all parameters are required", HttpStatus.BAD_REQUEST);
+        }
+        String salt = BCrypt.gensalt(BcryptCost, new SecureRandom());
+        byte[] hashedPassword = BCrypt.hashpw(password, salt).getBytes(StandardCharsets.UTF_8);
+
+        UserToRegister inserting = new UserToRegister();
+        // id: AUTO INCREMENT
+        inserting.setAccountName(accountName);
+        inserting.setAddress(address);
+        inserting.setHashedPassword(hashedPassword);
+        // num_sell_items: DEFAULT 0
+        // last_bump: DEFAULT '2000-01-01 00:00:00'
+        // created_at: DEFAULT CURRENT_TIMESTAMP
+        UserToRegister inserted = null;
+        try {
+            inserted = dataService.saveUser(inserting);
+        } catch (DbActionExecutionException e) {
+            // Duplicate entry for 'account_name', etc.
+            throw new ApiException("db error", HttpStatus.INTERNAL_SERVER_ERROR, e);
+        }
+
+        sessionService.setUserId(inserted.getId());
+        sessionService.setCsrfToken(secureRandomStr(20));
+        User user = new User();
+        user.setId(inserted.getId());
+        user.setAccountName(inserted.getAccountName());
+        user.setAddress(inserted.getAddress());
+        return user;
     }
 
     @GetMapping("/reports.json")

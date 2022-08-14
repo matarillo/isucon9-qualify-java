@@ -32,4 +32,6 @@ public class Const {
 
     public static final int ItemsPerPage = 48;
     public static final int TransactionsPerPage = 10;
+
+    public static final int BcryptCost = 10;
 }

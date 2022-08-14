@@ -31,6 +31,7 @@ import isucon9.qualify.dto.Shipping;
 import isucon9.qualify.dto.TransactionEvidence;
 import isucon9.qualify.dto.User;
 import isucon9.qualify.dto.UserSimple;
+import isucon9.qualify.dto.UserToRegister;
 
 @Service
 public class DataService {
@@ -38,18 +39,21 @@ public class DataService {
     private final DataSource dataSource;
     private final JdbcTemplate jdbcTemplate;
     private final UserRepository userRepository;
+    private final UserToRegisterRepository userToRegisterRepository;
     private final CategoryRepository categoryRepository;
     private final ItemRepository itemRepository;
     private final TransactionEvidenceRepository transactionEvidenceRepository;
     private final ShippingRepository shippingRepository;
 
     public DataService(SqlInitializationProperties properties, DataSource dataSource, JdbcTemplate jdbcTemplate,
-            UserRepository userRepository, CategoryRepository categoryRepository, ItemRepository itemRepository,
+            UserRepository userRepository, UserToRegisterRepository userToRegisterRepository,
+            CategoryRepository categoryRepository, ItemRepository itemRepository,
             TransactionEvidenceRepository transactionEvidenceRepository, ShippingRepository shippingRepository) {
         this.properties = properties;
         this.dataSource = dataSource;
         this.jdbcTemplate = jdbcTemplate;
         this.userRepository = userRepository;
+        this.userToRegisterRepository = userToRegisterRepository;
         this.categoryRepository = categoryRepository;
         this.itemRepository = itemRepository;
         this.transactionEvidenceRepository = transactionEvidenceRepository;
@@ -112,6 +116,10 @@ public class DataService {
 
     public boolean updateUser(long id, LocalDateTime lastBump) {
         return userRepository.update(id, lastBump);
+    }
+
+    public UserToRegister saveUser(UserToRegister newUser) {
+        return userToRegisterRepository.save(newUser);
     }
 
     public List<Category> getCategories() {

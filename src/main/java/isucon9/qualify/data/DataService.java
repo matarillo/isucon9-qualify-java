@@ -325,10 +325,10 @@ public class DataService {
     }
 
     public List<Item> getItemsByCategoryIds(List<Integer> ids, LocalDateTime createdAt, long itemId) {
-        return itemRepository.findItems(ItemStatusOnSale, ItemStatusTrading, ids, createdAt, itemId, ItemsPerPage + 1);
+        return itemRepository.findItems(ItemStatusOnSale, ItemStatusSoldOut, ids, createdAt, itemId, ItemsPerPage + 1);
     }
 
     public List<Item> getItemsByCategoryIds(List<Integer> ids) {
-        return itemRepository.findItems(ItemStatusOnSale, ItemStatusTrading, ids, ItemsPerPage + 1);
+        return itemRepository.findItems(ItemStatusOnSale, ItemStatusSoldOut, ids, ItemsPerPage + 1);
     }
 }

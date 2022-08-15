@@ -43,6 +43,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.security.crypto.bcrypt.BCrypt;
 import org.springframework.transaction.support.TransactionTemplate;
+import org.springframework.util.StringUtils;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.MissingServletRequestParameterException;
@@ -56,8 +57,6 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.server.ResponseStatusException;
-
-import com.mysql.cj.util.StringUtils;
 
 import isucon9.qualify.api.ApiService;
 import isucon9.qualify.data.DataService;
@@ -796,7 +795,7 @@ public class ApiController {
         String accountName = request.getAccountName();
         String address = request.getAddress();
         String password = request.getPassword();
-        if (StringUtils.isNullOrEmpty(accountName) || StringUtils.isNullOrEmpty(password) || StringUtils.isNullOrEmpty(address)) {
+        if (!(StringUtils.hasText(accountName) && StringUtils.hasText(password) && StringUtils.hasText(address))) {
             throw new ApiException("all parameters are required", HttpStatus.BAD_REQUEST);
         }
         String salt = BCrypt.gensalt(BcryptCost, new SecureRandom());

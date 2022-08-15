@@ -600,17 +600,17 @@ public class ApiController {
             }
             TransactionEvidence evidence = dataService.getTransactionEvidenceByIdForUpdate(transactionEvidence.getId())
                     .orElseThrow(notFound("transaction_evidences not found"));
-            if (!transactionEvidence.getStatus().equals(TransactionEvidenceStatusWaitShipping)) {
+            if (!evidence.getStatus().equals(TransactionEvidenceStatusWaitShipping)) {
                 throw new ApiException("準備ができていません", HttpStatus.FORBIDDEN);
             }
-            Shipping shipping = dataService.getShippingByIdForUpdate(transactionEvidence.getId())
+            Shipping shipping = dataService.getShippingByIdForUpdate(evidence.getId())
                     .orElseThrow(notFound("shippings not found"));
             ApiShipmentRequest req = new ApiShipmentRequest();
             req.setReserveId(shipping.getReserveId());
             byte[] img = apiService.requestShipment(dataService.getShipmentServiceURL(), req);
 
             LocalDateTime now = LocalDateTime.now();
-            dataService.requestShipping(transactionEvidence.getId(), img, now);
+            dataService.requestShipping(evidence.getId(), img, now);
             return shipping.getReserveId();
         });
 

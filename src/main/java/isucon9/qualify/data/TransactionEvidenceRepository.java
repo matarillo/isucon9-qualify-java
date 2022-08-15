@@ -1,6 +1,7 @@
 package isucon9.qualify.data;
 
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Optional;
 
 import org.springframework.data.jdbc.repository.query.Query;
@@ -20,4 +21,7 @@ public interface TransactionEvidenceRepository extends CrudRepository<Transactio
 
     @Query("UPDATE `transaction_evidences` SET `status` = :status, `updated_at` = :updatedAt WHERE `id` = :id")
     public boolean update(long id, String status, LocalDateTime updateAt);
+
+    @Query("SELECT * FROM `transaction_evidences` WHERE `id` > :id")
+    public List<TransactionEvidence> findAfter(long id);
 }

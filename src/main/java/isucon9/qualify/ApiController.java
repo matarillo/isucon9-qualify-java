@@ -829,7 +829,8 @@ public class ApiController {
 
     @GetMapping("/reports.json")
     public List<TransactionEvidence> getReports() {
-        throw new UnsupportedOperationException(); // not implemented
+        List<TransactionEvidence> response = dataService.getTransactionEvidencesForReports();
+        return response;
     }
 
     private String secureRandomStr(int byteLength) {

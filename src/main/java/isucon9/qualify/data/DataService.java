@@ -134,49 +134,37 @@ public class DataService {
     }
 
     public List<Item> getItems(LocalDateTime createdAt, long itemId) {
-        Iterable<Item> iterable = itemRepository.findItems(ItemStatusOnSale, ItemStatusSoldOut, createdAt, itemId,
+        List<Item> items = itemRepository.findItems(ItemStatusOnSale, ItemStatusSoldOut, createdAt, itemId,
                 ItemsPerPage + 1);
-        List<Item> items = new ArrayList<Item>();
-        iterable.forEach(items::add);
         return items;
     }
 
     public List<Item> getItems() {
-        Iterable<Item> iterable = itemRepository.findItems(ItemStatusOnSale, ItemStatusSoldOut, ItemsPerPage + 1);
-        List<Item> items = new ArrayList<Item>();
-        iterable.forEach(items::add);
+        List<Item> items = itemRepository.findItems(ItemStatusOnSale, ItemStatusSoldOut, ItemsPerPage + 1);
         return items;
     }
 
     public List<Item> getItemsForSale(long sellerId, LocalDateTime createdAt, long itemId) {
-        Iterable<Item> iterable = itemRepository.findItems(sellerId, ItemStatusOnSale, ItemStatusTrading,
+        List<Item> items = itemRepository.findItems(sellerId, ItemStatusOnSale, ItemStatusTrading,
                 ItemStatusSoldOut, createdAt, itemId, ItemsPerPage + 1);
-        List<Item> items = new ArrayList<Item>();
-        iterable.forEach(items::add);
         return items;
     }
 
     public List<Item> getItemsForSale(long sellerId) {
-        Iterable<Item> iterable = itemRepository.findItems(sellerId, ItemStatusOnSale, ItemStatusTrading,
+        List<Item> items = itemRepository.findItems(sellerId, ItemStatusOnSale, ItemStatusTrading,
                 ItemStatusSoldOut, ItemsPerPage + 1);
-        List<Item> items = new ArrayList<Item>();
-        iterable.forEach(items::add);
         return items;
     }
 
     public List<Item> getTransactionItems(long userId, LocalDateTime createdAt, long itemId) {
-        Iterable<Item> iterable = itemRepository.findItems(userId, ItemStatusOnSale, ItemStatusTrading,
+        List<Item> items = itemRepository.findItems(userId, ItemStatusOnSale, ItemStatusTrading,
                 ItemStatusSoldOut, ItemStatusCancel, ItemStatusStop, createdAt, itemId, TransactionsPerPage + 1);
-        List<Item> items = new ArrayList<Item>();
-        iterable.forEach(items::add);
         return items;
     }
 
     public List<Item> getTransactionItems(long userId) {
-        Iterable<Item> iterable = itemRepository.findItems(userId, ItemStatusOnSale, ItemStatusTrading,
+        List<Item> items = itemRepository.findItems(userId, ItemStatusOnSale, ItemStatusTrading,
                 ItemStatusSoldOut, ItemStatusCancel, ItemStatusStop, TransactionsPerPage + 1);
-        List<Item> items = new ArrayList<Item>();
-        iterable.forEach(items::add);
         return items;
     }
 
@@ -278,6 +266,10 @@ public class DataService {
         }
         Optional<TransactionEvidence> row = transactionEvidenceRepository.findByItemIdForUpdate(itemId);
         return row;
+    }
+
+    public List<TransactionEvidence> getTransactionEvidencesForReports() {
+        return transactionEvidenceRepository.findAfter(15007); // magic number 15007
     }
 
     public boolean updateTransactionEvidenceStatus(long transactionEvidenceId, String status, LocalDateTime updatedAt) {

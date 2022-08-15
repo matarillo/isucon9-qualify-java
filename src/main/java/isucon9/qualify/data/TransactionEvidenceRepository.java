@@ -4,6 +4,7 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
+import org.springframework.data.jdbc.repository.query.Modifying;
 import org.springframework.data.jdbc.repository.query.Query;
 import org.springframework.data.repository.CrudRepository;
 
@@ -19,6 +20,7 @@ public interface TransactionEvidenceRepository extends CrudRepository<Transactio
     @Query("SELECT * FROM `transaction_evidences` WHERE `item_id` = :itemId FOR UPDATE")
     public Optional<TransactionEvidence> findByItemIdForUpdate(long itemId);
 
+    @Modifying
     @Query("UPDATE `transaction_evidences` SET `status` = :status, `updated_at` = :updatedAt WHERE `id` = :id")
     public boolean update(long id, String status, LocalDateTime updateAt);
 

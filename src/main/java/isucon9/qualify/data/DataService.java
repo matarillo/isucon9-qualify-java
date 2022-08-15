@@ -27,8 +27,11 @@ import org.springframework.stereotype.Service;
 
 import isucon9.qualify.dto.Category;
 import isucon9.qualify.dto.Item;
+import isucon9.qualify.dto.ItemToSell;
 import isucon9.qualify.dto.Shipping;
+import isucon9.qualify.dto.ShippingToBuy;
 import isucon9.qualify.dto.TransactionEvidence;
+import isucon9.qualify.dto.TransactionEvidenceToBuy;
 import isucon9.qualify.dto.User;
 import isucon9.qualify.dto.UserSimple;
 import isucon9.qualify.dto.UserToRegister;
@@ -42,13 +45,19 @@ public class DataService {
     private final UserToRegisterRepository userToRegisterRepository;
     private final CategoryRepository categoryRepository;
     private final ItemRepository itemRepository;
+    private final ItemToSellRepository itemToSellRepository;
     private final TransactionEvidenceRepository transactionEvidenceRepository;
+    private final TransactionEvidenceToBuyRepository transactionEvidenceToBuyRepository;
     private final ShippingRepository shippingRepository;
+    private final ShippingToBuyRepository shippingToBuyRepository;
 
     public DataService(SqlInitializationProperties properties, DataSource dataSource, JdbcTemplate jdbcTemplate,
             UserRepository userRepository, UserToRegisterRepository userToRegisterRepository,
             CategoryRepository categoryRepository, ItemRepository itemRepository,
-            TransactionEvidenceRepository transactionEvidenceRepository, ShippingRepository shippingRepository) {
+            ItemToSellRepository itemToSellRepository,
+            TransactionEvidenceRepository transactionEvidenceRepository,
+            TransactionEvidenceToBuyRepository transactionEvidenceToBuyRepository,
+            ShippingRepository shippingRepository, ShippingToBuyRepository shippingToBuyRepository) {
         this.properties = properties;
         this.dataSource = dataSource;
         this.jdbcTemplate = jdbcTemplate;
@@ -56,8 +65,11 @@ public class DataService {
         this.userToRegisterRepository = userToRegisterRepository;
         this.categoryRepository = categoryRepository;
         this.itemRepository = itemRepository;
+        this.itemToSellRepository = itemToSellRepository;
         this.transactionEvidenceRepository = transactionEvidenceRepository;
+        this.transactionEvidenceToBuyRepository = transactionEvidenceToBuyRepository;
         this.shippingRepository = shippingRepository;
+        this.shippingToBuyRepository = shippingToBuyRepository;
     }
 
     public void initializeDatabase() {
@@ -232,8 +244,8 @@ public class DataService {
         return itemRepository.update(itemId, status, updatedAt);
     }
 
-    public Item saveItem(Item newItem) {
-        return itemRepository.save(newItem);
+    public ItemToSell saveItem(ItemToSell newItem) {
+        return itemToSellRepository.save(newItem);
     }
 
     public Optional<TransactionEvidence> getTransactionEvidenceById(long transactionEvidenceId) {
@@ -276,8 +288,8 @@ public class DataService {
         return transactionEvidenceRepository.update(transactionEvidenceId, status, updatedAt);
     }
 
-    public TransactionEvidence saveTransactionEvidence(TransactionEvidence newEvidence) {
-        return transactionEvidenceRepository.save(newEvidence);
+    public TransactionEvidenceToBuy saveTransactionEvidence(TransactionEvidenceToBuy newEvidence) {
+        return transactionEvidenceToBuyRepository.save(newEvidence);
     }
 
     public Optional<Shipping> getShippingById(long transactionEvidenceId) {
@@ -296,8 +308,8 @@ public class DataService {
         return row;
     }
 
-    public Shipping saveShipping(Shipping newShipping) {
-        return shippingRepository.save(newShipping);
+    public ShippingToBuy saveShipping(ShippingToBuy newShipping) {
+        return shippingToBuyRepository.save(newShipping);
     }
 
     public boolean requestShipping(long transactionEvidenceId, byte[] imgBinary, LocalDateTime updatedAt) {

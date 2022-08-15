@@ -22,20 +22,21 @@ import static isucon9.qualify.Const.TransactionsPerPage;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
 import java.nio.file.Path;
 import java.security.SecureRandom;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 import java.util.function.Supplier;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.core.io.ClassPathResource;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.io.Resource;
 import org.springframework.data.relational.core.conversion.DbActionExecutionException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
@@ -79,6 +80,7 @@ import isucon9.qualify.dto.ItemDetail;
 import isucon9.qualify.dto.ItemEditRequest;
 import isucon9.qualify.dto.ItemEditResponse;
 import isucon9.qualify.dto.ItemSimple;
+import isucon9.qualify.dto.ItemToSell;
 import isucon9.qualify.dto.LoginRequest;
 import isucon9.qualify.dto.NewItemsResponse;
 import isucon9.qualify.dto.PostCompleteRequest;
@@ -89,7 +91,9 @@ import isucon9.qualify.dto.RegisterRequest;
 import isucon9.qualify.dto.SellResponse;
 import isucon9.qualify.dto.SettingResponse;
 import isucon9.qualify.dto.Shipping;
+import isucon9.qualify.dto.ShippingToBuy;
 import isucon9.qualify.dto.TransactionEvidence;
+import isucon9.qualify.dto.TransactionEvidenceToBuy;
 import isucon9.qualify.dto.TransactionsResponse;
 import isucon9.qualify.dto.User;
 import isucon9.qualify.dto.UserItemsResponse;
@@ -429,7 +433,7 @@ public class ApiController {
         throwIfNotPositiveValue(itemId, "item_id param error");
         User buyer = getUser().orElseThrow(notFound("user not found"));
 
-        Shipping newShipping = tx.execute(status -> {
+        ShippingToBuy newShipping = tx.execute(status -> {
             Item targetItem = dataService.getItemByIdForUpdate(itemId).orElseThrow(notFound("item not found"));
             if (!targetItem.getStatus().equals(ItemStatusOnSale)) {
                 throw new ApiException("item is not for sale", HttpStatus.FORBIDDEN);
@@ -442,7 +446,7 @@ public class ApiController {
             Category category = dataService.GetCategoryById(targetItem.getCategoryId())
                     .orElseThrow(internalServerError("category id error"));
 
-            TransactionEvidence evidenceInserting = new TransactionEvidence();
+            TransactionEvidenceToBuy evidenceInserting = new TransactionEvidenceToBuy();
             // id: AUTO INCREMENT
             evidenceInserting.setSellerId(seller.getId());
             evidenceInserting.setBuyerId(buyer.getId());
@@ -455,7 +459,7 @@ public class ApiController {
             evidenceInserting.setItemRootCategoryId(category.getParentId());
             // created_at: DEFAULT CURRENT_TIMESTAMP
             // updated_at: DEFAULT CURRENT_TIMESTAMP
-            TransactionEvidence evidenceInserted = dataService.saveTransactionEvidence(evidenceInserting);
+            TransactionEvidenceToBuy evidenceInserted = dataService.saveTransactionEvidence(evidenceInserting);
             long transactionEvidenceId = evidenceInserted.getId();
 
             LocalDateTime now = LocalDateTime.now();
@@ -489,7 +493,7 @@ public class ApiController {
                     throw new ApiException("想定外のエラー", HttpStatus.BAD_REQUEST);
             }
 
-            Shipping shippingInserting = new Shipping();
+            ShippingToBuy shippingInserting = new ShippingToBuy();
             shippingInserting.setTransactionEvidenceId(transactionEvidenceId);
             shippingInserting.setStatus(ShippingsStatusInitial);
             shippingInserting.setItemName(targetItem.getName());
@@ -501,7 +505,7 @@ public class ApiController {
             shippingInserting.setFromAddress(seller.getAddress());
             shippingInserting.setFromName(seller.getAccountName());
             shippingInserting.setImgBinary(new byte[0]);
-            Shipping shippingInserted = dataService.saveShipping(shippingInserting);
+            ShippingToBuy shippingInserted = dataService.saveShipping(shippingInserting);
 
             return shippingInserted;
         });
@@ -516,7 +520,8 @@ public class ApiController {
             @RequestParam("description") String description,
             @RequestParam("price") int price,
             @RequestParam("category_id") int categoryId,
-            @RequestParam("image") MultipartFile image) {
+            @RequestParam("image") MultipartFile image,
+            @Value("${isucon9.public}") Resource publicResource) {
         if (name.isEmpty() || description.isEmpty()) {
             throw new ApiException("all parameters are required", HttpStatus.BAD_REQUEST);
         }
@@ -542,23 +547,32 @@ public class ApiController {
             case "image/gif":
                 ext = ".gif";
                 break;
+            case "application/octet-stream":
+                ext = "." + StringUtils.getFilenameExtension(image.getOriginalFilename());
+                if (ext.equals(".jpeg")) {
+                    ext = ".jpg";
+                }
+                List<String> extList = Arrays.asList(".jpg", ".png", ".gif");
+                if (extList.contains(ext)) {
+                    break;
+                }
+                // FALLTHROUGH
             default:
+                logger.error("unsupported image format: " + contentType);
+                logger.error("Original FileName: " + image.getOriginalFilename());
                 throw new ApiException("unsupported image format error", HttpStatus.BAD_REQUEST);
         }
         String imgName = secureRandomStr(16) + ext;
         try {
-            ClassPathResource uploadDirResource = new ClassPathResource("static/upload");
-            Path uploadDirPath = uploadDirResource.getFile().toPath();
-            Path target = uploadDirPath.resolve(imgName);
-            Path source = image.getResource().getFile().toPath();
-            Files.move(source, target);
+            Path target = publicResource.getFile().toPath().resolve("upload/" + imgName);
+            image.transferTo(target);
         } catch (IOException e) {
             throw new ApiException("Saving image failed", HttpStatus.INTERNAL_SERVER_ERROR, e);
         }
 
-        Item newItem = tx.execute(status -> {
+        ItemToSell newItem = tx.execute(status -> {
             User seller = dataService.getUserByIdForUpdate(user.getId()).orElseThrow(notFound("user not found"));
-            Item inserting = new Item();
+            ItemToSell inserting = new ItemToSell();
             // id: AUTO INCREMENT
             inserting.setSellerId(seller.getId());
             // buyer_id: DEFAULT 0
@@ -570,7 +584,7 @@ public class ApiController {
             inserting.setCategoryId(category.getId());
             // created_at: DEFAULT CURRENT_TIMESTAMP
             // updated_at: DEFAULT CURRENT_TIMESTAMP
-            Item inserted = dataService.saveItem(inserting);
+            ItemToSell inserted = dataService.saveItem(inserting);
             dataService.updateUser(seller.getId(), seller.getNumSellItems() + 1, LocalDateTime.now());
             return inserted;
         });
@@ -649,7 +663,7 @@ public class ApiController {
             req.setReserveId(shipping.getReserveId());
             ApiShipmentStatusResponse res = apiService.getShipmentStatus(dataService.getShipmentServiceURL(), req);
             if (!(res.getStatus().equals(ShippingsStatusShipping) || res.getStatus().equals(ShippingsStatusDone))) {
-                throw new ApiException("shipment service側で配送中か配送完了になっていません", HttpStatus.BAD_REQUEST);
+                throw new ApiException("shipment service側で配送中か配送完了になっていません", HttpStatus.FORBIDDEN);
             }
 
             LocalDateTime now = LocalDateTime.now();

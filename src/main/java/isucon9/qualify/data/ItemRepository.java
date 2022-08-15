@@ -4,6 +4,7 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
+import org.springframework.data.jdbc.repository.query.Modifying;
 import org.springframework.data.jdbc.repository.query.Query;
 import org.springframework.data.repository.CrudRepository;
 
@@ -38,15 +39,19 @@ public interface ItemRepository extends CrudRepository<Item, Long> {
     @Query("SELECT * FROM `items` WHERE `id` = :id FOR UPDATE")
     public Optional<Item> findByIdForUpdate(long id);
 
+    @Modifying
     @Query("UPDATE `items` SET `created_at` = :createdAt, `updated_at` = :updatedAt WHERE id = :id")
     public boolean update(long id, LocalDateTime createdAt, LocalDateTime updatedAt);
 
+    @Modifying
     @Query("UPDATE `items` SET `buyer_id` = :buyerId, `status` = :status, `updated_at` = :updatedAt WHERE `id` = :id")
     public boolean update(long id, long buyerId, String status, LocalDateTime updatedAt);
 
+    @Modifying
     @Query("UPDATE `items` SET `price` = :price, `updated_at` = :updatedAt WHERE `id` = :id")
     public boolean update(long id, int price, LocalDateTime updatedAt);
 
+    @Modifying
     @Query("UPDATE `items` SET `status` = :status, `updated_at` = :updatedAt WHERE `id` = :id")
     public boolean update(long id, String status, LocalDateTime updatedAt);
 }

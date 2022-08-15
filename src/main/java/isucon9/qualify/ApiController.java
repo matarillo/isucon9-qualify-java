@@ -558,8 +558,6 @@ public class ApiController {
                 }
                 // FALLTHROUGH
             default:
-                logger.error("unsupported image format: " + contentType);
-                logger.error("Original FileName: " + image.getOriginalFilename());
                 throw new ApiException("unsupported image format error", HttpStatus.BAD_REQUEST);
         }
         String imgName = secureRandomStr(16) + ext;

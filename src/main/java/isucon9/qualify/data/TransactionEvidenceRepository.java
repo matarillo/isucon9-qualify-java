@@ -22,7 +22,7 @@ public interface TransactionEvidenceRepository extends CrudRepository<Transactio
 
     @Modifying
     @Query("UPDATE `transaction_evidences` SET `status` = :status, `updated_at` = :updatedAt WHERE `id` = :id")
-    public boolean update(long id, String status, LocalDateTime updateAt);
+    public boolean update(long id, String status, LocalDateTime updatedAt);
 
     @Query("SELECT * FROM `transaction_evidences` WHERE `id` > :id")
     public List<TransactionEvidence> findAfter(long id);

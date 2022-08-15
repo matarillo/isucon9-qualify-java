@@ -4,6 +4,8 @@ import java.net.URI;
 
 import org.apache.http.client.methods.HttpEntityEnclosingRequestBase;
 import org.apache.http.client.methods.HttpUriRequest;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.boot.web.client.RestTemplateBuilder;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
@@ -29,6 +31,7 @@ public class ApiService {
     private static final String isucariApiToken = "Bearer 75ugk2m37a750fwir5xr-22l6h4wmue1bwrubzwd0";
     private static final String userAgent = "isucon9-qualify-webapp";
 
+    private final Logger logger = LoggerFactory.getLogger(ApiService.class);
     private final RestTemplate restTemplate;
 
     public ApiService(RestTemplateBuilder restTemplateBuilder) {
@@ -71,7 +74,7 @@ public class ApiService {
 
     public byte[] requestShipment(String shipmentUrl, ApiShipmentRequest request) {
         try {
-            String endpoint = shipmentUrl + "/status";
+            String endpoint = shipmentUrl + "/request";
             HttpHeaders headers = new HttpHeaders();
             headers.add("User-Agent", userAgent);
             headers.add("Content-Type", "application/json");
@@ -102,7 +105,6 @@ public class ApiService {
     }
 
     private static class CustomRequestFactory extends HttpComponentsClientHttpRequestFactory {
-
         @Override
         protected HttpUriRequest createHttpUriRequest(HttpMethod httpMethod, URI uri) {
             if (HttpMethod.GET.equals(httpMethod)) {

@@ -520,6 +520,7 @@ public class ApiController {
         if (name.isEmpty() || description.isEmpty()) {
             throw new ApiException("all parameters are required", HttpStatus.BAD_REQUEST);
         }
+        throwIfInvalidCsrfToken(csrfToken);
         throwIfNotPositiveValue(categoryId, "category id error");
         if (price < ItemMinPrice || price > ItemMaxPrice) {
             throw new ApiException(ItemPriceErrMsg, HttpStatus.BAD_REQUEST);
